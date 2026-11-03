@@ -1,5 +1,5 @@
 import 'server-only'
-import { createHash } from 'node:crypto'
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
 import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import bcrypt from 'bcryptjs'
@@ -18,14 +18,33 @@ function secret() {
   return new TextEncoder().encode(s)
 }
 
-function passwordHash(): string | null {
+/**
+ * The admin password comes from a Vercel environment variable:
+ *  - ADMIN_PASSWORD            plain text (simplest; change it in Vercel, then redeploy)
+ *  - ADMIN_PASSWORD_HASH_B64   optional bcrypt hash instead, if you prefer not to store plain text
+ */
+function credential(): { kind: 'plain' | 'hash'; value: string } | null {
+  const plain = process.env.ADMIN_PASSWORD
+  if (plain && plain.length >= 8) return { kind: 'plain', value: plain }
   const b64 = process.env.ADMIN_PASSWORD_HASH_B64
-  return b64 ? Buffer.from(b64, 'base64').toString('utf8') : null
+  if (b64) return { kind: 'hash', value: Buffer.from(b64, 'base64').toString('utf8') }
+  return null
 }
 
-/** Changing the password changes this fingerprint, which invalidates every existing session. */
-function fingerprint(hash: string) {
-  return createHash('sha256').update(hash).digest('hex').slice(0, 16)
+async function passwordMatches(cred: { kind: 'plain' | 'hash'; value: string }, attempt: string) {
+  if (cred.kind === 'hash') return bcrypt.compare(attempt, cred.value)
+  // Compare fixed-length digests in constant time.
+  const a = createHash('sha256').update(attempt).digest()
+  const b = createHash('sha256').update(cred.value).digest()
+  return timingSafeEqual(a, b)
+}
+
+/**
+ * Keyed fingerprint of the current password. Changing the password changes it, which
+ * invalidates every existing session. It is an HMAC so the token reveals nothing guessable.
+ */
+function fingerprint(cred: { value: string }) {
+  return createHmac('sha256', secret()).update(cred.value).digest('hex').slice(0, 24)
 }
 
 export interface Session {
@@ -34,11 +53,11 @@ export interface Session {
 
 export async function getSession(): Promise<Session | null> {
   const token = cookies().get(SESSION_COOKIE)?.value
-  const hash = passwordHash()
-  if (!token || !hash) return null
+  const cred = credential()
+  if (!token || !cred) return null
   try {
     const { payload } = await jwtVerify(token, secret(), { algorithms: ['HS256'] })
-    if (payload.pv !== fingerprint(hash) || typeof payload.name !== 'string') return null
+    if (payload.pv !== fingerprint(cred) || typeof payload.name !== 'string') return null
     return { name: payload.name }
   } catch {
     return null
@@ -60,8 +79,8 @@ export function clientIp(): string {
 export type LoginResult = 'ok' | 'invalid' | 'locked' | 'config'
 
 export async function attemptLogin(name: string, password: string): Promise<LoginResult> {
-  const hash = passwordHash()
-  if (!hash || !process.env.SESSION_SECRET) return 'config'
+  const cred = credential()
+  if (!cred || !process.env.SESSION_SECRET) return 'config'
   const ip = clientIp()
 
   const [ipFails] = await query<{ n: number }>(
@@ -74,12 +93,12 @@ export async function attemptLogin(name: string, password: string): Promise<Logi
   )
   if (ipFails.n >= MAX_FAILS_PER_IP || allFails.n >= MAX_FAILS_GLOBAL) return 'locked'
 
-  const ok = await bcrypt.compare(password, hash)
+  const ok = await passwordMatches(cred, password)
   await query('INSERT INTO login_attempts (ip, ok) VALUES ($1, $2)', [ip, ok])
   await query(`DELETE FROM login_attempts WHERE at < now() - interval '2 days'`)
   if (!ok) return 'invalid'
 
-  const token = await new SignJWT({ name, pv: fingerprint(hash) })
+  const token = await new SignJWT({ name, pv: fingerprint(cred) })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(`${SESSION_HOURS}h`)

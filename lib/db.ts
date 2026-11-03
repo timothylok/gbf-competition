@@ -5,11 +5,16 @@ import { SCHEMA_SQL } from './schema'
 type Row = Record<string, any>
 type Runner = (text: string, params?: unknown[]) => Promise<Row[]>
 
-let runner: Runner | null = null
-let ready: Promise<void> | null = null
+// Cached on globalThis (as promises) so hot-reloads and parallel first requests
+// never open a second embedded DB on the same folder.
+const g = globalThis as unknown as { __gbfRunner?: Promise<Runner>; __gbfReady?: Promise<void> }
 
-async function getRunner(): Promise<Runner> {
-  if (runner) return runner
+function getRunner(): Promise<Runner> {
+  return (g.__gbfRunner ??= createRunner())
+}
+
+async function createRunner(): Promise<Runner> {
+  let runner: Runner
   const url = process.env.DATABASE_URL
   if (url) {
     const sql = neon(url)
@@ -28,12 +33,9 @@ async function getRunner(): Promise<Runner> {
 /** Run a parameterised query. The schema is created on first use (idempotent). */
 export async function query<T = Row>(text: string, params: unknown[] = []): Promise<T[]> {
   const run = await getRunner()
-  if (!ready) {
-    ready = (async () => {
-      for (const stmt of SCHEMA_SQL) await run(stmt)
-    })()
-  }
-  await ready
+  await (g.__gbfReady ??= (async () => {
+    for (const stmt of SCHEMA_SQL) await run(stmt)
+  })())
   return (await run(text, params)) as T[]
 }
 
