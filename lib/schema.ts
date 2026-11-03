@@ -42,6 +42,13 @@ export const SCHEMA_SQL = [
     action TEXT NOT NULL,
     detail TEXT NOT NULL DEFAULT ''
   )`,
+  `CREATE TABLE IF NOT EXISTS admin_lock (
+    id INT PRIMARY KEY CHECK (id = 1),
+    sid TEXT NOT NULL,
+    name TEXT NOT NULL,
+    pv TEXT NOT NULL,
+    last_seen TIMESTAMPTZ NOT NULL DEFAULT now()
+  )`,
   `CREATE TABLE IF NOT EXISTS login_attempts (
     id SERIAL PRIMARY KEY,
     ip TEXT NOT NULL,

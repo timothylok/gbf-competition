@@ -7,7 +7,7 @@ export default async function LoginPage() {
   if (await getSession()) redirect('/admin')
   const { t } = getT()
   const labels = Object.fromEntries(
-    (['yourName', 'password', 'login', 'errInvalid', 'errLocked', 'errConfig', 'errName'] as const).map((k) => [k, t(k)]),
+    (['yourName', 'password', 'login', 'errInvalid', 'errLocked', 'errConfig', 'errName', 'errBusy'] as const).map((k) => [k, t(k)]),
   )
   return (
     <div className="card mx-auto max-w-sm">

@@ -4,7 +4,7 @@ import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { audit, query } from './db'
-import { attemptLogin, destroySession, requireAdmin } from './auth'
+import { attemptLogin, endSession, requireAdmin } from './auth'
 import { back, parsePlayerLines } from './action-utils'
 import { generatePlan } from './scheduler'
 import type { Key } from './i18n'
@@ -31,14 +31,18 @@ function fields(fd: FormData): Record<string, string> {
 
 // ---------- session ----------
 
-export async function login(_prev: { error?: Key } | undefined, fd: FormData): Promise<{ error?: Key }> {
+export async function login(
+  _prev: { error?: Key; who?: string; mins?: number } | undefined,
+  fd: FormData,
+): Promise<{ error?: Key; who?: string; mins?: number }> {
   const name = String(fd.get('name') ?? '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 40)
   const password = String(fd.get('password') ?? '').slice(0, 200)
   if (!name) return { error: 'errName' }
   const result = await attemptLogin(name, password)
-  if (result === 'invalid') return { error: 'errInvalid' }
-  if (result === 'locked') return { error: 'errLocked' }
-  if (result === 'config') return { error: 'errConfig' }
+  if (result.status === 'invalid') return { error: 'errInvalid' }
+  if (result.status === 'locked') return { error: 'errLocked' }
+  if (result.status === 'config') return { error: 'errConfig' }
+  if (result.status === 'busy') return { error: 'errBusy', who: result.who, mins: result.mins }
   await audit(name, 'login')
   redirect('/admin')
 }
@@ -46,7 +50,7 @@ export async function login(_prev: { error?: Key } | undefined, fd: FormData): P
 export async function logout() {
   const s = await requireAdmin()
   await audit(s.name, 'logout')
-  destroySession()
+  await endSession(s.sid)
   redirect('/admin/login')
 }
 

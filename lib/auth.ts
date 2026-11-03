@@ -1,16 +1,20 @@
 import 'server-only'
-import { createHash, createHmac, timingSafeEqual } from 'node:crypto'
+import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
+import { cache } from 'react'
 import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import bcrypt from 'bcryptjs'
 import { SignJWT, jwtVerify } from 'jose'
 import { query } from './db'
+import { ACQUIRE_SQL, HOLDER_SQL, RELEASE_SQL, TOUCH_SQL } from './lock-sql'
 
 export const SESSION_COOKIE = 'gbf_admin'
 const SESSION_HOURS = 12
 const MAX_FAILS_PER_IP = 5
 const MAX_FAILS_GLOBAL = 40
 const WINDOW_MINUTES = 15
+// Only one admin may be signed in at a time; the lock frees after this much inactivity.
+const IDLE_MINUTES = Number(process.env.ADMIN_IDLE_MINUTES) > 0 ? Number(process.env.ADMIN_IDLE_MINUTES) : 20
 
 function secret() {
   const s = process.env.SESSION_SECRET
@@ -49,20 +53,24 @@ function fingerprint(cred: { value: string }) {
 
 export interface Session {
   name: string
+  sid: string
 }
 
-export async function getSession(): Promise<Session | null> {
+/** Valid only while this session still holds the single-admin lock. Memoised per request. */
+export const getSession = cache(async (): Promise<Session | null> => {
   const token = cookies().get(SESSION_COOKIE)?.value
   const cred = credential()
   if (!token || !cred) return null
   try {
     const { payload } = await jwtVerify(token, secret(), { algorithms: ['HS256'] })
-    if (payload.pv !== fingerprint(cred) || typeof payload.name !== 'string') return null
-    return { name: payload.name }
+    const pv = fingerprint(cred)
+    if (payload.pv !== pv || typeof payload.name !== 'string' || typeof payload.sid !== 'string') return null
+    const held = await query(TOUCH_SQL, [payload.sid, String(IDLE_MINUTES), pv])
+    return held.length ? { name: payload.name, sid: payload.sid } : null
   } catch {
     return null
   }
-}
+})
 
 /** Call at the top of every admin page and every admin server action. */
 export async function requireAdmin(): Promise<Session> {
@@ -76,11 +84,13 @@ export function clientIp(): string {
   return (h.get('x-forwarded-for')?.split(',')[0] ?? h.get('x-real-ip') ?? 'unknown').trim().slice(0, 64)
 }
 
-export type LoginResult = 'ok' | 'invalid' | 'locked' | 'config'
+export type LoginResult =
+  | { status: 'ok' | 'invalid' | 'locked' | 'config' }
+  | { status: 'busy'; who: string; mins: number }
 
 export async function attemptLogin(name: string, password: string): Promise<LoginResult> {
   const cred = credential()
-  if (!cred || !process.env.SESSION_SECRET) return 'config'
+  if (!cred || !process.env.SESSION_SECRET) return { status: 'config' }
   const ip = clientIp()
 
   const [ipFails] = await query<{ n: number }>(
@@ -91,14 +101,24 @@ export async function attemptLogin(name: string, password: string): Promise<Logi
     `SELECT count(*)::int AS n FROM login_attempts WHERE ok = false AND at > now() - ($1 || ' minutes')::interval`,
     [String(WINDOW_MINUTES)],
   )
-  if (ipFails.n >= MAX_FAILS_PER_IP || allFails.n >= MAX_FAILS_GLOBAL) return 'locked'
+  if (ipFails.n >= MAX_FAILS_PER_IP || allFails.n >= MAX_FAILS_GLOBAL) return { status: 'locked' }
 
   const ok = await passwordMatches(cred, password)
   await query('INSERT INTO login_attempts (ip, ok) VALUES ($1, $2)', [ip, ok])
   await query(`DELETE FROM login_attempts WHERE at < now() - interval '2 days'`)
-  if (!ok) return 'invalid'
+  if (!ok) return { status: 'invalid' }
 
-  const token = await new SignJWT({ name, pv: fingerprint(cred) })
+  // Password is right. Now try to take the single-admin lock (after the password check, so
+  // nobody can learn who is signed in without knowing it).
+  const sid = randomUUID()
+  const pv = fingerprint(cred)
+  const got = await query(ACQUIRE_SQL, [sid, name, pv, String(IDLE_MINUTES)])
+  if (got.length === 0) {
+    const [holder] = await query<{ name: string; mins: number }>(HOLDER_SQL, [String(IDLE_MINUTES)])
+    return { status: 'busy', who: holder?.name ?? '?', mins: holder?.mins ?? IDLE_MINUTES }
+  }
+
+  const token = await new SignJWT({ name, sid, pv })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime(`${SESSION_HOURS}h`)
@@ -110,9 +130,11 @@ export async function attemptLogin(name: string, password: string): Promise<Logi
     path: '/',
     maxAge: SESSION_HOURS * 3600,
   })
-  return 'ok'
+  return { status: 'ok' }
 }
 
-export function destroySession() {
+/** Sign out: free the lock so the next admin can sign in straight away. */
+export async function endSession(sid: string) {
+  await query(RELEASE_SQL, [sid])
   cookies().delete(SESSION_COOKIE)
 }

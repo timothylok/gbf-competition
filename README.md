@@ -41,6 +41,9 @@ Prefer not to keep the password in plain text? Set `ADMIN_PASSWORD_HASH_B64` ins
 
 ## Running the event
 
+Only one admin can be signed in at a time, so agree who keeps score. Always press **Sign out** when you hand over;
+otherwise the next person waits until the 20-minute inactivity limit passes.
+
 1. **Admin → New competition** (date, start time, courts, minutes per match). It starts as *Draft*, which is hidden from the public.
 2. **Players tab:** paste one per line as `nickname, M or F, optional grade` (grade 1 = strongest). Use nicknames, since they are shown publicly.
 3. **Schedule tab:** check the plan preview, then **Generate**. Change the draw number for a different draw.
@@ -81,6 +84,11 @@ what is enforced when you press Generate.
 
 - Admin pages and **every** admin server action re-check the session; middleware is only a first gate.
 - Session: signed JWT in an `httpOnly`, `Secure`, `SameSite=Strict` cookie, 12-hour expiry.
+- **One admin at a time.** A single database lock holds the signed-in admin. A second person who enters the right
+  password is refused and told who is signed in. The lock frees when the admin signs out, after 20 minutes without
+  activity (set `ADMIN_IDLE_MINUTES` to change), or when the password is changed. If the lock changes hands, the
+  old session stops working on its next click. The password is checked first, so the holder's name is not revealed
+  to anyone who doesn't know it.
 - Login rate limit: 5 failures per IP and 40 total per 15 minutes, tracked in the database.
 - Password comparison is constant-time; all input is validated with Zod; all SQL is parameterised.
 - Security headers (CSP, HSTS, frame-ancestors none, nosniff) are set in `next.config.mjs`.
