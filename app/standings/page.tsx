@@ -51,9 +51,9 @@ export default async function StandingsPage({ searchParams }: { searchParams: { 
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 tabular-nums">
-              {rows.map((r, i) => (
-                <tr key={r.player.id} className={i < 3 ? 'bg-accent-subtle/40' : ''}>
-                  <td className="px-3 py-2 font-bold">{i + 1}</td>
+              {rows.map((r) => (
+                <tr key={r.player.id} className={r.rank <= 3 ? 'bg-accent-subtle/40' : ''}>
+                  <td className="px-3 py-2 font-bold">{r.tied ? `T-${r.rank}` : r.rank}</td>
                   <td className="px-3 py-2 font-medium">
                     <Link href={`/players/${r.player.id}?c=${comp.id}`} className="hover:underline">{r.player.nickname}</Link>
                   </td>
