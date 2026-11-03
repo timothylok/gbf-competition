@@ -186,10 +186,12 @@ export async function generateSchedule(fd: FormData) {
   const f = fields(fd)
   const id = int.parse(f.id)
   const path = `/admin/c/${id}/schedule`
-  const r = z.object({ target: int.min(1).max(10), seed: int.min(0).max(1_000_000) }).safeParse(f)
+  const r = z
+    .object({ mdGames: int.min(0).max(10), xdGames: int.min(0).max(10), hours: z.coerce.number().min(0.5).max(24), seed: int.min(0).max(1_000_000) })
+    .safeParse(f)
   if (!r.success) back(path, 'err', 'invalid')
 
-  const comps = await query<{ courts: number }>('SELECT courts FROM competitions WHERE id=$1', [id])
+  const comps = await query<{ courts: number; slot_minutes: number }>('SELECT courts, slot_minutes FROM competitions WHERE id=$1', [id])
   if (!comps[0]) back('/admin', 'err', 'notfound')
   const [started] = await query<{ n: number }>(
     "SELECT count(*)::int AS n FROM matches WHERE competition_id=$1 AND status <> 'scheduled'",
@@ -202,8 +204,11 @@ export async function generateSchedule(fd: FormData) {
   )
   if (players.length < 4) back(path, 'err', 'players')
 
-  const plan = generatePlan(players, comps[0].courts, r.data.target, r.data.seed)
+  const plan = generatePlan(players, comps[0].courts, { mdGames: r.data.mdGames, xdGames: r.data.xdGames }, r.data.seed)
   if (plan.matches.length === 0) back(path, 'err', 'players')
+  // Hard time limit: refuse a draw that would run past it.
+  const maxRounds = Math.floor((r.data.hours * 60) / comps[0].slot_minutes)
+  if (plan.rounds > maxRounds) back(path, 'err', 'toolong')
 
   // One statement: delete the old draw and insert the new one atomically.
   const params: unknown[] = [id]
@@ -217,8 +222,8 @@ export async function generateSchedule(fd: FormData) {
      INSERT INTO matches (competition_id, event, round, court, a1, a2, b1, b2) VALUES ${values.join(',')}`,
     params,
   )
-  await audit(s.name, 'schedule.generate', `#${id}: ${plan.matches.length} matches, seed ${r.data.seed}, target ${r.data.target}`)
-  back(path, 'ok', 'generated')
+  await audit(s.name, 'schedule.generate', `#${id}: ${plan.matches.length} matches, seed ${r.data.seed}, MD ${r.data.mdGames}/man, XD ${r.data.xdGames}/woman`)
+  back(path, 'ok', plan.warnings.length ? 'generated_warn' : 'generated')
 }
 
 const matchSchema = z.object({

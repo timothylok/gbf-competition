@@ -5,9 +5,14 @@ import { requireAdmin } from '@/lib/auth'
 import { addMatch, deleteMatch, generateSchedule, saveMatch } from '@/lib/actions'
 import { getT, type T } from '@/lib/i18n'
 import { getCompetition, getMatches, getPlayers } from '@/lib/queries'
-import { planCounts } from '@/lib/scheduler'
+import { planCounts, roundsNeeded } from '@/lib/scheduler'
 import { roundTime } from '@/lib/time'
 import type { Match, Player } from '@/lib/types'
+
+// Defaults for a typical event: 4 games each, 5-hour limit.
+const DEFAULT_MD = 4
+const DEFAULT_XD = 4
+const DEFAULT_HOURS = 5
 
 function PlayerSelect({ name, players, value, label }: { name: string; players: Player[]; value?: number; label: string }) {
   return (
@@ -55,9 +60,11 @@ export default async function SchedulePage({ params, searchParams }: { params: {
   const byId = new Map(players.map((p) => [p.id, p]))
   const men = players.filter((p) => p.gender === 'M').length
   const women = players.length - men
-  const plan = planCounts(men, women, 4)
+  const plan = planCounts(men, women, { mdGames: DEFAULT_MD, xdGames: DEFAULT_XD })
   const planned = plan.md + plan.xd
-  const planRounds = Math.ceil(planned / comp.courts)
+  const planRounds = roundsNeeded(planned, comp.courts)
+  const maxRounds = Math.floor((DEFAULT_HOURS * 60) / comp.slot_minutes)
+  const perMan = men > 0 ? DEFAULT_MD + (2 * plan.xd) / men : 0
 
   const warn = (m: Match): string[] => {
     const out: string[] = []
@@ -84,12 +91,23 @@ export default async function SchedulePage({ params, searchParams }: { params: {
         <p className="mb-3 text-sm text-slate-600">{t('generateHelp')}</p>
         <p className="mb-3 text-sm font-medium text-slate-700">
           {t('planPreview')}: {players.length} {t('playersCount')} ({men} {t('menCount')}, {women} {t('womenCount')}) → {planned} {t('planMatches')} ({t('MD')} {plan.md}, {t('XD')} {plan.xd}),{' '}
-          {planRounds} {t('planRounds')}, {t('planFinish')} {roundTime(comp.start_time, comp.slot_minutes, planRounds + 1)}
+          {planRounds} {t('planRounds')}, {t('planFinish')} {roundTime(comp.start_time, comp.slot_minutes, planRounds + 1)}, ~{perMan.toFixed(1)} {t('menPlay')}.{' '}
+          <span className={planRounds > maxRounds ? 'font-bold text-red-700' : 'text-emerald-700'}>
+            {planRounds > maxRounds ? `⚠ ${t('planOver')}` : `✓ ${t('planFits')}`}
+          </span>
         </p>
-        <div className="grid grid-cols-2 gap-3 sm:max-w-md">
+        <div className="grid grid-cols-2 gap-3 sm:max-w-xl sm:grid-cols-4">
           <div>
-            <label htmlFor="target" className="label">{t('gamesPerPlayer')}</label>
-            <input id="target" name="target" type="number" min={1} max={10} defaultValue={4} className="input" />
+            <label htmlFor="mdGames" className="label">{t('mdGames')}</label>
+            <input id="mdGames" name="mdGames" type="number" min={0} max={10} defaultValue={DEFAULT_MD} className="input" />
+          </div>
+          <div>
+            <label htmlFor="xdGames" className="label">{t('xdGames')}</label>
+            <input id="xdGames" name="xdGames" type="number" min={0} max={10} defaultValue={DEFAULT_XD} className="input" />
+          </div>
+          <div>
+            <label htmlFor="hours" className="label">{t('windowHours')}</label>
+            <input id="hours" name="hours" type="number" min={0.5} max={24} step={0.5} defaultValue={DEFAULT_HOURS} className="input" />
           </div>
           <div>
             <label htmlFor="seed" className="label">{t('seed')}</label>

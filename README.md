@@ -44,6 +44,8 @@ Prefer not to keep the password in plain text? Set `ADMIN_PASSWORD_HASH_B64` ins
 1. **Admin → New competition** (date, start time, courts, minutes per match). It starts as *Draft*, which is hidden from the public.
 2. **Players tab:** paste one per line as `nickname, M or F, optional grade` (grade 1 = strongest). Use nicknames, since they are shown publicly.
 3. **Schedule tab:** check the plan preview, then **Generate**. Change the draw number for a different draw.
+   Set the games per man (men's doubles), games per woman (mixed doubles) and the time limit in hours; a draw that
+   would run past the limit is refused.
    Edit any match (players, court, round), add matches by hand, or regenerate until play starts.
    Amber badges warn about a clash (same player or court twice in a round) or a line-up that doesn't fit the event.
 4. On the **Overview** tab set status to **Live** to publish it.
@@ -51,8 +53,29 @@ Prefer not to keep the password in plain text? Set `ADMIN_PASSWORD_HASH_B64` ins
    *Reset* undoes a result. Open rounds are listed first.
 6. Set **Finished** afterwards; it stays viewable under *Past events*.
 
-Women play mixed doubles only, so the men's/mixed split follows your gender ratio. The scheduler never repeats a
-partner if it can avoid it, and avoids back-to-back games.
+### How the draw works
+
+Men's doubles come first, mixed doubles second:
+
+1. Every man plays the set number of **men's doubles** games (default 4).
+2. Every woman plays the set number of **mixed doubles** games (default 4). Women only play mixed.
+3. Men fill the other two places in each mixed match as **extra games**, with no cap. The scheduler always picks the men
+   with the fewest games, so extras are spread evenly (typically within 2 games of each other).
+4. In each round men's doubles are placed first (lower court numbers), then mixed.
+5. No player is in two matches in a round, partners are not repeated if it can be avoided, and players who just sat out
+   are preferred for the next round. Optional grades (1 = strongest) are used to keep sides balanced.
+
+Examples at 4 games each, 5 courts, 15-minute matches:
+
+| Men / Women | Men's | Mixed | Matches | Rounds | Finish (from 09:00) | Games per man |
+|---|---|---|---|---|---|---|
+| 50 / 14 | 50 | 28 | 78 | 16 | 13:00 | 4 to 6 |
+| 44 / 20 | 44 | 40 | 84 | 17 | 13:15 | 5 to 6 |
+| 40 / 24 | 40 | 48 | 88 | 18 | 13:30 | 6 to 7 |
+| 32 / 32 | 32 | 64 | 96 | 20 | 14:00 | 7 to 9 |
+
+Note: the plan line on the Schedule tab always shows the defaults (4 games, 5 hours). The time limit you type in the form is
+what is enforced when you press Generate.
 
 ## Security notes
 
