@@ -93,7 +93,7 @@ export default async function SchedulePage({ params, searchParams }: { params: {
         <p className="mb-3 text-sm font-medium text-ink">
           {t('planPreview')}: {players.length} {t('playersCount')} ({men} {t('menCount')}, {women} {t('womenCount')}) → {planned} {t('planMatches')} ({t('MD')} {plan.md}, {t('XD')} {plan.xd}),{' '}
           {planRounds} {t('planRounds')}, {t('planFinish')} {roundTime(comp.start_time, comp.slot_minutes, planRounds + 1)}, ~{perMan.toFixed(1)} {t('menPlay')}.{' '}
-          <span className={planRounds > maxRounds ? 'font-bold text-berry' : 'text-ink'}>
+          <span className={planRounds > maxRounds ? 'font-bold text-ink underline decoration-berry decoration-2' : 'text-ink'}>
             {planRounds > maxRounds ? `⚠ ${t('planOver')}` : `✓ ${t('planFits')}`}
           </span>
         </p>

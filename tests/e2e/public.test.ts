@@ -49,6 +49,7 @@ describe('what a logged-out visitor sees', () => {
     const r = await fetchHtml('/')
     const live = cards(r.html).find((c) => mdLive.names.every((n) => c.includes(n)))!
     assert.match(live, /Live/)
+    assert.match(r.html, /class="[^"]*live-badge/, 'the Live badge uses the animated style')
     assert.match(live, /\b10\b/)
     assert.match(live, /\b8\b/)
     assert.match(live, /Men's doubles/)
@@ -115,6 +116,10 @@ describe('what a logged-out visitor sees', () => {
     assert.match(r.text, /進行中/)
     assert.match(r.text, /男子雙打/)
     assert.match(r.text, /混合雙打/)
+    assert.match(r.text, /5 個場地/)
+    assert.doesNotMatch(r.text, /5 場地數/)
+    assert.match(r.text, /5 個場地/)
+    assert.doesNotMatch(r.text, /5 場地數/)
     const s = await fetchHtml(q('/standings'), 'lang=zh')
     assert.match(s.text, /勝 2 分、和 1 分、負 0 分/)
     assert.match(s.text, /並列名次/)

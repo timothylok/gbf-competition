@@ -29,6 +29,11 @@ describe('translations (English + Traditional Chinese for Hong Kong)', () => {
     assert.match(zh.scoringNote, /和 1 分/)
     assert.match(en.scoringNote, /Win 2, draw 1, loss 0/)
   })
+  it('reads "5 個場地" in the competition header, not the form label "場地數"', () => {
+    assert.equal(zh.courtsShort, '個場地')
+    assert.equal(en.courtsShort, 'courts')
+    assert.notEqual(zh.courtsShort, zh.courts)
+  })
   it('mentions the single-admin rule with who and minutes', () => {
     for (const d of [en, zh]) {
       assert(d.errBusy.includes('{who}') && d.errBusy.includes('{mins}'))

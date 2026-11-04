@@ -13,7 +13,7 @@ function ScoreCard({ m, comp, nm, t, round, start }: { m: Match; comp: number; n
   const tone = TONE[m.event]
   const status =
     m.status === 'live'
-      ? { label: t('mLive'), cls: 'bg-sun text-ink' }
+      ? { label: t('mLive'), cls: 'live-badge' }
       : m.status === 'done'
         ? { label: t('mDone'), cls: 'bg-leaf text-ink' }
         : m.status === 'cancelled'

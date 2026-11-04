@@ -24,7 +24,7 @@ function Team({
       <ul className="min-w-0 flex-1 space-y-0.5">
         {ids.map((id) => (
           <li key={id} className={`truncate text-base text-ink ${win ? 'font-bold' : dim ? 'opacity-70' : ''}`}>
-            <Link href={`/players/${id}?c=${comp}`} className="inline-block max-w-full py-1.5 align-top hover:underline">
+            <Link href={`/players/${id}?c=${comp}`} className="inline-block max-w-full py-1 align-top hover:underline">
               {names[id] ?? '?'}
             </Link>
           </li>
@@ -53,7 +53,7 @@ export function MatchCard({ m, names, comp }: { m: Match; names: Names; comp: Co
 
   const status =
     m.status === 'live'
-      ? { label: t('mLive'), cls: 'bg-sun text-ink', pulse: true }
+      ? { label: t('mLive'), cls: 'live-badge', pulse: true }
       : m.status === 'done'
         ? { label: t('mDone'), cls: 'bg-leaf text-ink', pulse: false }
         : m.status === 'cancelled'
@@ -74,7 +74,7 @@ export function MatchCard({ m, names, comp }: { m: Match; names: Names; comp: Co
       </div>
       <footer className="flex items-center gap-2 bg-paper/30 px-4 py-2">
         <span className={`chip gap-1.5 ${status.cls}`}>
-          {status.pulse && <span aria-hidden className="h-2 w-2 animate-pulse rounded-full bg-ink" />}
+          {status.pulse && <span aria-hidden className="h-2 w-2 animate-pulse rounded-full bg-current" />}
           {status.label}
         </span>
         {draw && <span className="chip bg-mist text-ink">{t('draw')}</span>}

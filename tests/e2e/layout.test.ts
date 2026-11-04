@@ -120,6 +120,37 @@ describe('layout: phone width, accessibility, colours', () => {
     })
   })
 
+  describe('animated Live badge', () => {
+    const badgeColours = async () => {
+      const seen = new Set<string>()
+      for (let i = 0; i < 14; i++) {
+        seen.add(await phone.$eval('.live-badge', (e) => getComputedStyle(e).color))
+        await new Promise((r) => setTimeout(r, 250))
+      }
+      return [...seen].map(rgbToHex)
+    }
+    it('shows on the competition header and on live matches, on a dark background', async () => {
+      await visit(`/?c=${comp}`)
+      const r = await phone.evaluate(() => ({ n: document.querySelectorAll('.live-badge').length, bg: getComputedStyle(document.querySelector('.live-badge')!).backgroundColor, header: !!document.querySelector('h1 + .live-badge, .live-badge') }))
+      assert(r.n >= 2, `expected the header badge and at least one match badge, found ${r.n}`)
+      assert.equal(rgbToHex(r.bg), '#101820')
+    })
+    it('really changes colour over time, using only the four Pantone colours', async () => {
+      await visit(`/?c=${comp}`)
+      const colours = await badgeColours()
+      assert(colours.length >= 3, `only saw ${colours.join(', ')}`)
+      for (const c of colours) assert(['#ff5fa2', '#00a9e0', '#f5df4d', '#88b04b'].includes(c), `${c} is not one of the four`)
+    })
+    it('stands still, in yellow, when the visitor prefers reduced motion', async () => {
+      await phone.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }])
+      await visit(`/?c=${comp}`)
+      assert.equal(await phone.$eval('.live-badge', (e) => getComputedStyle(e).animationName), 'none')
+      const colours = await badgeColours()
+      assert.deepEqual(colours, ['#f5df4d'])
+      await phone.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'no-preference' }])
+    })
+  })
+
   describe('accessibility basics', () => {
     it('has a language, a title and exactly one h1 on every page', async () => {
       for (const [name, url] of pages) {

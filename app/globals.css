@@ -45,7 +45,27 @@
   .btn-danger {
     @apply btn bg-berry text-paper hover:bg-ink;
   }
+  /* "Live" badge: dark pill, text steps through four Pantone colours (812 C, 2995 C, yellow, green).
+     Hard steps keep every colour a pure Pantone value; each has 6:1+ contrast on Black 6 C.
+     About one change per second, and static for visitors who ask for reduced motion. */
+  .live-badge {
+    @apply chip gap-1.5 bg-ink font-extrabold uppercase tracking-wide text-sun;
+    animation: live-colors 3.2s step-end infinite;
+  }
   .chip {
     @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold;
+  }
+}
+
+@keyframes live-colors {
+  0% { color: theme('colors.pink'); }
+  25% { color: theme('colors.blue'); }
+  50% { color: theme('colors.sun'); }
+  75% { color: theme('colors.leaf'); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live-badge {
+    animation: none;
   }
 }

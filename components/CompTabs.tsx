@@ -17,10 +17,13 @@ export function CompTabs({ comp, active }: { comp: Competition; active: 'live' |
     <div className="mb-5">
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <h1 className="text-2xl font-bold text-ink">{comp.name}</h1>
-        <span className={`chip ${comp.status === 'live' ? 'bg-berry/15 text-berry' : 'bg-mist text-ink'}`}>{t(statusKey)}</span>
+        <span className={comp.status === 'live' ? 'live-badge' : 'chip bg-mist text-ink'}>
+          {comp.status === 'live' && <span aria-hidden className="h-2 w-2 animate-pulse rounded-full bg-current" />}
+          {t(statusKey)}
+        </span>
       </div>
       <p className="mb-3 text-sm text-ink/75">
-        {comp.event_date} · {comp.start_time} · {comp.courts} {t('courts')} · {comp.slot_minutes} min
+        {comp.event_date} · {comp.start_time} · {comp.courts} {t('courtsShort')} · {comp.slot_minutes} min
       </p>
       <nav aria-label="Sections" className="flex gap-1 border-b border-mist">
         {tabs.map((tab) => (
