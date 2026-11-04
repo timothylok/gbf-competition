@@ -18,7 +18,7 @@ export function Banner({ ok, err }: { ok?: string; err?: string }) {
   return (
     <div
       role={errMsg ? 'alert' : 'status'}
-      className={`mb-4 rounded-lg px-4 py-3 text-sm font-medium ${errMsg ? 'bg-red-50 text-red-800' : 'bg-emerald-50 text-emerald-800'}`}
+      className={`mb-4 rounded-lg px-4 py-3 text-sm font-medium ${errMsg ? 'border-l-4 border-berry bg-berry/10 text-ink' : 'border-l-4 border-leaf bg-leaf/20 text-ink'}`}
     >
       {errMsg ?? okMsg}
     </div>

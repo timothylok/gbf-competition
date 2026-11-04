@@ -24,15 +24,15 @@ export default async function PlayerPage({ params, searchParams }: { params: { i
 
   return (
     <>
-      <p className="mb-2 text-sm"><Link href={`/?c=${comp.id}`} className="text-slate-600 hover:underline">← {comp.name}</Link></p>
-      <h1 className="mb-1 text-2xl font-bold text-navy-900">{player.nickname}</h1>
-      <p className="mb-4 text-sm text-slate-600">
+      <p className="mb-2 text-sm"><Link href={`/?c=${comp.id}`} className="text-stone hover:underline">← {comp.name}</Link></p>
+      <h1 className="mb-1 text-2xl font-bold text-blue">{player.nickname}</h1>
+      <p className="mb-4 text-sm text-stone">
         {t('record')}: {rec ? `${rec.won}${t('won')} ${rec.drawn}${t('drawn')} ${rec.lost}${t('lost')} · ${rec.pts} ${t('points')} · ${rec.diff > 0 ? '+' : ''}${rec.diff}` : '—'}
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         {mine.map((m) => <MatchCard key={m.id} m={m} names={names} comp={comp} />)}
       </div>
-      {mine.length === 0 && <p className="text-sm text-slate-500">{t('noMatches')}</p>}
+      {mine.length === 0 && <p className="text-sm text-stone">{t('noMatches')}</p>}
     </>
   )
 }

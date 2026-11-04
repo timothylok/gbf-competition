@@ -4,37 +4,37 @@
 
 @layer base {
   body {
-    @apply bg-slate-50 text-slate-800 antialiased;
+    @apply bg-cloud text-ink antialiased;
   }
   :focus-visible {
-    @apply outline-none ring-2 ring-accent ring-offset-2;
+    @apply outline-none ring-2 ring-blue ring-offset-2;
   }
 }
 
 @layer components {
   .card {
-    @apply rounded-xl border border-slate-200 bg-white p-4 shadow-sm;
+    @apply rounded-xl border border-mist bg-paper p-4 shadow-sm;
   }
   .input {
-    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-base text-slate-900 placeholder:text-slate-400;
+    @apply w-full rounded-lg border border-mist bg-paper px-3 py-2 text-base text-ink placeholder:text-stone;
   }
   .label {
-    @apply mb-1 block text-sm font-medium text-slate-700;
+    @apply mb-1 block text-sm font-medium text-ink;
   }
   .btn {
     @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50;
   }
   .btn-primary {
-    @apply btn bg-navy-900 text-white hover:bg-navy-700;
+    @apply btn bg-blue text-paper hover:bg-ink;
   }
   .btn-accent {
-    @apply btn bg-accent text-navy-950 hover:bg-accent-light;
+    @apply btn bg-sun text-ink hover:bg-sun/80;
   }
   .btn-ghost {
-    @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-100;
+    @apply btn border border-mist bg-paper text-ink hover:bg-mist/40;
   }
   .btn-danger {
-    @apply btn bg-red-700 text-white hover:bg-red-800;
+    @apply btn bg-berry text-paper hover:bg-ink;
   }
   .chip {
     @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold;

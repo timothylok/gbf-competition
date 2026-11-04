@@ -4,7 +4,7 @@ Match schedule, live scores and standings for Grand Badminton Family casual comp
 Public visitors only view. Admins sign in with a shared password to manage players, the draw and scores.
 
 - Next.js 14 (App Router) · TypeScript · Tailwind · Postgres (Neon free tier) · deploys to Vercel Hobby
-- English and 繁體中文 (toggle in the header)
+- English and 繁體中文 (Hong Kong, `zh-HK`; toggle in the header)
 - Scoring: win 2, draw 1, loss 0; ties broken by points difference, then points scored. Matches are time-limited, so draws are possible.
 
 ## Local development
@@ -79,6 +79,17 @@ Examples at 4 games each, 5 courts, 15-minute matches:
 
 Note: the plan line on the Schedule tab always shows the defaults (4 games, 5 hours). The time limit you type in the form is
 what is enforced when you press Generate.
+
+## Design
+
+- **Pantone palette only.** Men's doubles panels are Classic Blue (19-4052), mixed doubles are Honeysuckle pink (18-2120);
+  live is Illuminating (13-0647), final is Greenery (15-0343), errors Viva Magenta (18-1750), text Black 6 C, backgrounds
+  Cloud Dancer (11-4201) and Bright White (11-0601). Pantone publishes no official hex values, so `tailwind.config.ts` holds
+  the widely used digital approximations. It *replaces* Tailwind's default colours, and `npm test` fails if any non-Pantone
+  colour class or hex value appears.
+- Each match is a panel: coloured header (court, time, event), the two sides with large score boxes, and a status footer.
+  The score-entry cards use the same layout with number inputs and big buttons for phones.
+- Checked at 390px wide (no horizontal scroll on any page) and for WCAG AA text contrast.
 
 ## Security notes
 

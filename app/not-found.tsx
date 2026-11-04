@@ -3,7 +3,7 @@ import Link from 'next/link'
 export default function NotFound() {
   return (
     <div className="card text-center">
-      <h1 className="mb-2 text-xl font-bold text-navy-900">404</h1>
+      <h1 className="mb-2 text-xl font-bold text-blue">404</h1>
       <Link href="/" className="btn-primary">GBF Competition</Link>
     </div>
   )

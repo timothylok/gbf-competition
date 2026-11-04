@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: 'Schedule' }
 export default async function SchedulePage({ searchParams }: { searchParams: { c?: string; p?: string } }) {
   const { t } = getT()
   const data = await loadPublic(searchParams.c)
-  if (!data) return <p className="card text-slate-600">{t('noEvent')}</p>
+  if (!data) return <p className="card text-stone">{t('noEvent')}</p>
   const { comp, players, matches, names } = data
 
   const pid = Number(searchParams.p) || null
@@ -33,10 +33,10 @@ export default async function SchedulePage({ searchParams }: { searchParams: { c
         </div>
         <button className="btn-primary" type="submit">{t('filter')}</button>
       </form>
-      {rounds.length === 0 && <p className="text-sm text-slate-500">{t('noMatches')}</p>}
+      {rounds.length === 0 && <p className="text-sm text-stone">{t('noMatches')}</p>}
       {rounds.map((r) => (
         <section key={r} className="mb-6" aria-label={`${t('round')} ${r}`}>
-          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-slate-500">
+          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-stone">
             {t('round')} {r} · {roundTime(comp.start_time, comp.slot_minutes, r)}
           </h2>
           <div className="grid gap-3 sm:grid-cols-2">

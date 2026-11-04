@@ -11,13 +11,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const session = await getSession()
   return (
     <>
-      <div className="mb-5 flex items-center gap-3 rounded-lg bg-accent-subtle px-4 py-2 text-sm">
-        <Link href="/admin" className="font-bold text-navy-900">{t('adminTitle')}</Link>
+      <div className="mb-5 flex items-center gap-3 rounded-lg bg-sun/25 px-4 py-2 text-sm">
+        <Link href="/admin" className="py-2 font-bold text-blue">{t('adminTitle')}</Link>
         {session && (
           <>
-            <Link href="/admin/audit" className="text-slate-700 hover:underline">{t('audit')}</Link>
-            <span className="ml-auto text-slate-600">{session.name}</span>
-            <form action={logout}><button className="btn-ghost !py-1">{t('logout')}</button></form>
+            <Link href="/admin/audit" className="py-2 text-ink hover:underline">{t('audit')}</Link>
+            <span className="ml-auto text-stone">{session.name}</span>
+            <form action={logout}><button className="btn-ghost">{t('logout')}</button></form>
           </>
         )}
       </div>

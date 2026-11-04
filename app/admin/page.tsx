@@ -12,20 +12,20 @@ export default async function AdminHome({ searchParams }: { searchParams: { ok?:
   return (
     <>
       <Banner ok={searchParams.ok} err={searchParams.err} />
-      <h1 className="mb-3 text-xl font-bold text-navy-900">{t('competitions')}</h1>
+      <h1 className="mb-3 text-xl font-bold text-blue">{t('competitions')}</h1>
       <ul className="mb-8 grid gap-3 sm:grid-cols-2">
         {comps.map((c) => (
           <li key={c.id}>
-            <Link href={`/admin/c/${c.id}`} className="card block hover:border-accent">
-              <span className="block font-bold text-navy-900">{c.name}</span>
-              <span className="text-sm text-slate-600">{c.event_date} · {t(c.status === 'live' ? 'statusLive' : c.status === 'finished' ? 'statusFinished' : 'statusDraft')}</span>
+            <Link href={`/admin/c/${c.id}`} className="card block hover:border-sun">
+              <span className="block font-bold text-blue">{c.name}</span>
+              <span className="text-sm text-stone">{c.event_date} · {t(c.status === 'live' ? 'statusLive' : c.status === 'finished' ? 'statusFinished' : 'statusDraft')}</span>
             </Link>
           </li>
         ))}
       </ul>
 
       <section className="card">
-        <h2 className="mb-3 font-bold text-navy-900">{t('newCompetition')}</h2>
+        <h2 className="mb-3 font-bold text-blue">{t('newCompetition')}</h2>
         <form action={createCompetition} className="grid gap-3 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <label htmlFor="name" className="label">{t('name')}</label>

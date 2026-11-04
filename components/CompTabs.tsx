@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { getT } from '@/lib/i18n'
 import type { Competition } from '@/lib/types'
+import { EventLegend } from './MatchCard'
 
 /** Competition heading plus Live / Schedule / Standings tabs for public pages. */
 export function CompTabs({ comp, active }: { comp: Competition; active: 'live' | 'schedule' | 'standings' }) {
@@ -15,24 +16,25 @@ export function CompTabs({ comp, active }: { comp: Competition; active: 'live' |
   return (
     <div className="mb-5">
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <h1 className="text-2xl font-bold text-navy-900">{comp.name}</h1>
-        <span className={`chip ${comp.status === 'live' ? 'bg-red-100 text-red-800' : 'bg-slate-200 text-slate-700'}`}>{t(statusKey)}</span>
+        <h1 className="text-2xl font-bold text-blue">{comp.name}</h1>
+        <span className={`chip ${comp.status === 'live' ? 'bg-berry/15 text-berry' : 'bg-mist text-ink'}`}>{t(statusKey)}</span>
       </div>
-      <p className="mb-3 text-sm text-slate-600">
+      <p className="mb-3 text-sm text-stone">
         {comp.event_date} · {comp.start_time} · {comp.courts} {t('courts')} · {comp.slot_minutes} min
       </p>
-      <nav aria-label="Sections" className="flex gap-1 border-b border-slate-200">
+      <nav aria-label="Sections" className="flex gap-1 border-b border-mist">
         {tabs.map((tab) => (
           <Link
             key={tab.key}
             href={tab.href}
             aria-current={tab.key === active ? 'page' : undefined}
-            className={`border-b-2 px-4 py-2 text-sm font-semibold ${tab.key === active ? 'border-accent text-navy-900' : 'border-transparent text-slate-500 hover:text-navy-900'}`}
+            className={`border-b-2 px-4 py-2 text-sm font-semibold ${tab.key === active ? 'border-sun text-blue' : 'border-transparent text-stone hover:text-blue'}`}
           >
             {tab.label}
           </Link>
         ))}
       </nav>
+      <div className="mt-3"><EventLegend /></div>
     </div>
   )
 }

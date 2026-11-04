@@ -12,7 +12,7 @@ export function AdminTabs({ id, labels }: { id: number; labels: { overview: stri
     { href: `/admin/c/${id}/scores`, label: labels.scores },
   ]
   return (
-    <nav aria-label="Competition sections" className="mb-5 flex gap-1 overflow-x-auto border-b border-slate-200">
+    <nav aria-label="Competition sections" className="mb-5 flex gap-1 overflow-x-auto border-b border-mist">
       {tabs.map((t) => {
         const active = path === t.href
         return (
@@ -20,7 +20,7 @@ export function AdminTabs({ id, labels }: { id: number; labels: { overview: stri
             key={t.href}
             href={t.href}
             aria-current={active ? 'page' : undefined}
-            className={`whitespace-nowrap border-b-2 px-4 py-2 text-sm font-semibold ${active ? 'border-accent text-navy-900' : 'border-transparent text-slate-500 hover:text-navy-900'}`}
+            className={`whitespace-nowrap border-b-2 px-4 py-2 text-sm font-semibold ${active ? 'border-sun text-blue' : 'border-transparent text-stone hover:text-blue'}`}
           >
             {t.label}
           </Link>
