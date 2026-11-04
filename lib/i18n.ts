@@ -276,6 +276,9 @@ const zh: Record<Key, string> = {
   err_distinct: '四位球員必須是此賽事中不同的人。',
 }
 
+/** Exported for the translation tests. */
+export const dictionaries = { en, zh }
+
 export type Lang = 'en' | 'zh'
 export type T = (k: Key) => string
 

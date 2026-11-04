@@ -48,7 +48,7 @@ export default async function Overview({ params, searchParams }: { params: { id:
 
       <form action={deleteCompetition} className="card border-berry/40">
         <h2 className="mb-1 font-bold text-berry">{t('dangerZone')}</h2>
-        <p className="mb-3 text-sm text-stone">{t('dangerHelp')}</p>
+        <p className="mb-3 text-sm text-ink/75">{t('dangerHelp')}</p>
         <input type="hidden" name="id" value={c.id} />
         <div className="flex gap-2">
           <input name="confirm" className="input" aria-label={t('name')} autoComplete="off" required />

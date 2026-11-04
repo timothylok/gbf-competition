@@ -20,7 +20,7 @@ export function AdminTabs({ id, labels }: { id: number; labels: { overview: stri
             key={t.href}
             href={t.href}
             aria-current={active ? 'page' : undefined}
-            className={`whitespace-nowrap border-b-2 px-4 py-2 text-sm font-semibold ${active ? 'border-sun text-blue' : 'border-transparent text-stone hover:text-blue'}`}
+            className={`whitespace-nowrap border-b-2 px-4 py-2 text-sm font-semibold ${active ? 'border-sun text-ink' : 'border-transparent text-ink/75 hover:text-ink'}`}
           >
             {t.label}
           </Link>

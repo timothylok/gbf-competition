@@ -13,7 +13,8 @@ Public visitors only view. Admins sign in with a shared password to manage playe
 npm install
 cp .env.example .env.local      # then fill in ADMIN_PASSWORD and SESSION_SECRET
 npm run dev                     # http://localhost:3000
-npm test                        # scheduler + standings logic tests
+npm test                        # unit tests (about 3 s); see tests/README.md
+npm run test:e2e                # end-to-end tests in a real Chrome (about 15 min)
 ```
 
 With `DATABASE_URL` empty, local dev uses an embedded database in `.pglite/` (git-ignored), so no account is needed.
@@ -82,11 +83,14 @@ what is enforced when you press Generate.
 
 ## Design
 
-- **Pantone palette only.** Men's doubles panels are Classic Blue (19-4052), mixed doubles are Honeysuckle pink (18-2120);
-  live is Illuminating (13-0647), final is Greenery (15-0343), errors Viva Magenta (18-1750), text Black 6 C, backgrounds
-  Cloud Dancer (11-4201) and Bright White (11-0601). Pantone publishes no official hex values, so `tailwind.config.ts` holds
-  the widely used digital approximations. It *replaces* Tailwind's default colours, and `npm test` fails if any non-Pantone
-  colour class or hex value appears.
+- **Pantone palette only.** Men's doubles panels are PANTONE 2995 C (`#00A9E0`), mixed doubles are PANTONE 812 C (`#FF5FA2`,
+  neon pink); live is Illuminating (13-0647), final is Greenery (15-0343), errors Viva Magenta (18-1750), text Black 6 C,
+  backgrounds Cloud Dancer (11-4201) and Bright White (11-0601). Pantone publishes no official hex values, so
+  `tailwind.config.ts` holds the widely used digital approximations. It *replaces* Tailwind's default colours, and `npm test`
+  fails if any non-Pantone colour class or hex value appears. Both event colours are light, so text on them is always Black 6 C.
+- **Glass style.** Panels, cards and tables use the frosted-glass recipe from css.glass (20% Bright White fill, 16px radius,
+  soft shadow, 5px backdrop blur, 30% white border) over soft Pantone colour fields. Men's doubles panels have a blue header strip
+  and wash, mixed doubles a pink one.
 - Each match is a panel: coloured header (court, time, event), the two sides with large score boxes, and a status footer.
   The score-entry cards use the same layout with number inputs and big buttons for phones.
 - Checked at 390px wide (no horizontal scroll on any page) and for WCAG AA text contrast.

@@ -23,7 +23,7 @@ function Team({
     <div className="flex items-center gap-3 px-4 py-2">
       <ul className="min-w-0 flex-1 space-y-0.5">
         {ids.map((id) => (
-          <li key={id} className={`truncate text-base ${win ? 'font-bold text-ink' : dim ? 'text-stone' : 'text-ink'}`}>
+          <li key={id} className={`truncate text-base text-ink ${win ? 'font-bold' : dim ? 'opacity-70' : ''}`}>
             <Link href={`/players/${id}?c=${comp}`} className="inline-block max-w-full py-1.5 align-top hover:underline">
               {names[id] ?? '?'}
             </Link>
@@ -33,7 +33,7 @@ function Team({
       {win && <span className="sr-only">{t('winner')}</span>}
       <div
         className={`grid h-12 min-w-[3.25rem] place-items-center rounded-xl px-2 text-2xl font-extrabold tabular-nums ${
-          show ? (win ? tone.win : tone.tint) : 'bg-mist/40 text-stone'
+          show ? (win ? tone.win : tone.tint) : 'bg-paper/40 text-ink/70'
         }`}
       >
         {show ? score : '–'}
@@ -57,28 +57,28 @@ export function MatchCard({ m, names, comp }: { m: Match; names: Names; comp: Co
       : m.status === 'done'
         ? { label: t('mDone'), cls: 'bg-leaf text-ink', pulse: false }
         : m.status === 'cancelled'
-          ? { label: t('mCancelled'), cls: 'bg-mist text-stone line-through', pulse: false }
-          : { label: t('mScheduled'), cls: 'bg-mist text-stone', pulse: false }
+          ? { label: t('mCancelled'), cls: 'bg-mist text-ink line-through', pulse: false }
+          : { label: t('mScheduled'), cls: 'bg-mist text-ink', pulse: false }
 
   return (
-    <article className={`overflow-hidden rounded-2xl border-2 bg-paper shadow-sm ${tone.border}`}>
+    <article className={`glass overflow-hidden ${tone.wash}`}>
       <header className={`flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-wide ${tone.band}`}>
         <span>{t('court')} {m.court}</span>
         <span aria-hidden>·</span>
         <span>{roundTime(comp.start_time, comp.slot_minutes, m.round)}</span>
         <span className="ml-auto">{t(m.event)}</span>
       </header>
-      <div className="divide-y divide-mist">
+      <div className="divide-y divide-ink/10">
         <Team ids={[m.a1, m.a2]} names={names} comp={comp.id} score={m.score_a} show={show} win={aWin} dim={bWin} tone={tone} t={t} />
         <Team ids={[m.b1, m.b2]} names={names} comp={comp.id} score={m.score_b} show={show} win={bWin} dim={aWin} tone={tone} t={t} />
       </div>
-      <footer className="flex items-center gap-2 bg-cloud px-4 py-2">
+      <footer className="flex items-center gap-2 bg-paper/30 px-4 py-2">
         <span className={`chip gap-1.5 ${status.cls}`}>
           {status.pulse && <span aria-hidden className="h-2 w-2 animate-pulse rounded-full bg-ink" />}
           {status.label}
         </span>
-        {draw && <span className="chip bg-mist text-stone">{t('draw')}</span>}
-        <span className="ml-auto text-xs text-stone">{t('round')} {m.round}</span>
+        {draw && <span className="chip bg-mist text-ink">{t('draw')}</span>}
+        <span className="ml-auto text-xs text-ink/70">{t('round')} {m.round}</span>
       </footer>
     </article>
   )
@@ -88,7 +88,7 @@ export function MatchCard({ m, names, comp }: { m: Match; names: Names; comp: Co
 export function EventLegend() {
   const { t } = getT()
   return (
-    <p className="mb-5 flex flex-wrap items-center gap-2 text-xs text-stone">
+    <p className="mb-5 flex flex-wrap items-center gap-2 text-xs text-ink">
       <span className={`chip ${TONE.MD.chip}`}>{t('MD')}</span>
       <span className={`chip ${TONE.XD.chip}`}>{t('XD')}</span>
     </p>

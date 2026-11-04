@@ -17,7 +17,7 @@ export default async function PlayersPage({ params, searchParams }: { params: { 
       <form action={addPlayers} className="card mb-6">
         <input type="hidden" name="id" value={id} />
         <label htmlFor="text" className="label">{t('bulkAdd')}</label>
-        <p className="mb-2 text-xs text-stone">{t('bulkHelp')}</p>
+        <p className="mb-2 text-xs text-ink/75">{t('bulkHelp')}</p>
         <textarea id="text" name="text" rows={6} className="input mb-3 font-mono text-sm" required placeholder={'Kevin, M, 2\nMei, F'} />
         <button className="btn-accent">{t('addPlayers')}</button>
       </form>
@@ -25,7 +25,7 @@ export default async function PlayersPage({ params, searchParams }: { params: { 
       <p className="mb-3 text-sm font-semibold text-ink">
         {players.length} {t('playersCount')} · {men} {t('menCount')} · {players.length - men} {t('womenCount')}
       </p>
-      {players.length === 0 && <p className="text-sm text-stone">{t('noPlayers')}</p>}
+      {players.length === 0 && <p className="text-sm text-ink/75">{t('noPlayers')}</p>}
       <ul className="space-y-2">
         {players.map((p) => (
           <li key={p.id} className="card !p-3">

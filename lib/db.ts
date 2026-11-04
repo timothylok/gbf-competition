@@ -22,7 +22,7 @@ async function createRunner(): Promise<Runner> {
   } else if (process.env.NODE_ENV !== 'production') {
     // Local dev only: embedded Postgres so no account is needed.
     const { PGlite } = await import('@electric-sql/pglite')
-    const db = new PGlite('./.pglite')
+    const db = new PGlite(process.env.PGLITE_DIR || './.pglite') // PGLITE_DIR lets tests use a throwaway database
     runner = async (text, params = []) => (await db.query(text, params as any[])).rows as Row[]
   } else {
     throw new Error('DATABASE_URL is not set')

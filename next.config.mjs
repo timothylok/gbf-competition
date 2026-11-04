@@ -24,6 +24,8 @@ const securityHeaders = [
 
 const nextConfig = {
   poweredByHeader: false,
+  // Tests build into their own folder so they never clash with a running dev server.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   experimental: { serverComponentsExternalPackages: ['@electric-sql/pglite'] },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }]

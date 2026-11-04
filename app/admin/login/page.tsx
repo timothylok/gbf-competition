@@ -11,7 +11,7 @@ export default async function LoginPage() {
   )
   return (
     <div className="card mx-auto max-w-sm">
-      <h1 className="mb-4 text-xl font-bold text-blue">{t('adminTitle')}</h1>
+      <h1 className="mb-4 text-xl font-bold text-ink">{t('adminTitle')}</h1>
       <LoginForm labels={labels} />
     </div>
   )

@@ -7,7 +7,7 @@ import { loadPublic } from '@/lib/public'
 export default async function LivePage({ searchParams }: { searchParams: { c?: string } }) {
   const { t } = getT()
   const data = await loadPublic(searchParams.c)
-  if (!data) return <p className="card text-stone">{t('noEvent')}</p>
+  if (!data) return <p className="card text-ink/75">{t('noEvent')}</p>
   const { comp, matches, names } = data
 
   const live = matches.filter((m) => m.status === 'live')
@@ -21,9 +21,9 @@ export default async function LivePage({ searchParams }: { searchParams: { c?: s
 
   const Section = ({ title, empty, items }: { title: string; empty: string; items: typeof matches }) => (
     <section className="mb-8" aria-labelledby={title}>
-      <h2 id={title} className="mb-3 text-lg font-bold text-blue">{title}</h2>
+      <h2 id={title} className="mb-3 text-lg font-bold text-ink">{title}</h2>
       {items.length === 0 ? (
-        <p className="text-sm text-stone">{empty}</p>
+        <p className="text-sm text-ink/75">{empty}</p>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
           {items.map((m) => <MatchCard key={m.id} m={m} names={names} comp={comp} />)}
@@ -39,7 +39,7 @@ export default async function LivePage({ searchParams }: { searchParams: { c?: s
       <Section title={t('nowPlaying')} empty={t('nothingLive')} items={live} />
       <Section title={t('upNext')} empty={t('nothingNext')} items={next} />
       <Section title={t('latestResults')} empty={t('nothingDone')} items={done} />
-      {comp.status === 'live' && <p className="text-xs text-stone">{t('autoRefresh')}</p>}
+      {comp.status === 'live' && <p className="text-xs text-ink/75">{t('autoRefresh')}</p>}
     </>
   )
 }

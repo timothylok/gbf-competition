@@ -7,16 +7,25 @@
     @apply bg-cloud text-ink antialiased;
   }
   :focus-visible {
-    @apply outline-none ring-2 ring-blue ring-offset-2;
+    @apply outline-none ring-2 ring-ink ring-offset-2;
   }
 }
 
 @layer components {
+  /* Frosted glass (css.glass recipe) in Pantone colours: Bright White at 20%, Black 6 C shadow. */
+  .glass {
+    background: rgb(244 245 240 / 0.2);
+    border-radius: 16px;
+    box-shadow: 0 4px 30px rgb(16 24 32 / 0.1);
+    -webkit-backdrop-filter: blur(5px);
+    backdrop-filter: blur(5px);
+    border: 1px solid rgb(244 245 240 / 0.3);
+  }
   .card {
-    @apply rounded-xl border border-mist bg-paper p-4 shadow-sm;
+    @apply glass p-4;
   }
   .input {
-    @apply w-full rounded-lg border border-mist bg-paper px-3 py-2 text-base text-ink placeholder:text-stone;
+    @apply w-full rounded-lg border border-mist bg-paper px-3 py-2 text-base text-ink placeholder:text-ink/60;
   }
   .label {
     @apply mb-1 block text-sm font-medium text-ink;
@@ -25,7 +34,7 @@
     @apply inline-flex items-center justify-center rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50;
   }
   .btn-primary {
-    @apply btn bg-blue text-paper hover:bg-ink;
+    @apply btn bg-blue text-ink hover:bg-ink hover:text-paper;
   }
   .btn-accent {
     @apply btn bg-sun text-ink hover:bg-sun/80;

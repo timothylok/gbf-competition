@@ -6,3 +6,6 @@ node_modules
 next-env.d.ts
 *.tsbuildinfo
 .vercel
+.next-test
+.e2e-tmp
+tests/e2e/.artifacts

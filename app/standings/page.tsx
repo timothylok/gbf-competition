@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: 'Standings' }
 export default async function StandingsPage({ searchParams }: { searchParams: { c?: string; e?: string } }) {
   const { t } = getT()
   const data = await loadPublic(searchParams.c)
-  if (!data) return <p className="card text-stone">{t('noEvent')}</p>
+  if (!data) return <p className="card text-ink/75">{t('noEvent')}</p>
   const { comp, players, matches } = data
 
   const ev = searchParams.e === 'MD' || searchParams.e === 'XD' ? searchParams.e : 'ALL'
@@ -35,9 +35,9 @@ export default async function StandingsPage({ searchParams }: { searchParams: { 
         ))}
       </div>
       {rows.length === 0 ? (
-        <p className="text-sm text-stone">{t('noStandings')}</p>
+        <p className="text-sm text-ink/75">{t('noStandings')}</p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-mist bg-paper">
+        <div className="glass overflow-x-auto">
           <table className="w-full text-sm">
             <caption className="sr-only">{t(ev)}</caption>
             <thead className="bg-ink text-left text-xs uppercase text-mist">
@@ -50,7 +50,7 @@ export default async function StandingsPage({ searchParams }: { searchParams: { 
                 <th scope="col" className="px-3 py-2 text-right text-sun">{t('points')}</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-mist tabular-nums">
+            <tbody className="divide-y divide-ink/10 tabular-nums">
               {rows.map((r) => (
                 <tr key={r.player.id} className={r.rank <= 3 ? 'bg-sun/25' : ''}>
                   <td className="px-3 py-2 font-bold">{r.tied ? `T-${r.rank}` : r.rank}</td>
@@ -62,14 +62,14 @@ export default async function StandingsPage({ searchParams }: { searchParams: { 
                   <td className="px-2 py-2 text-right">{r.drawn}</td>
                   <td className="px-2 py-2 text-right">{r.lost}</td>
                   <td className="px-2 py-2 text-right">{r.diff > 0 ? `+${r.diff}` : r.diff}</td>
-                  <td className="px-3 py-2 text-right font-bold text-blue">{r.pts}</td>
+                  <td className="px-3 py-2 text-right font-bold text-ink">{r.pts}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
-      <p className="mt-3 text-xs text-stone">{t('scoringNote')}</p>
+      <p className="mt-3 text-xs text-ink/75">{t('scoringNote')}</p>
     </>
   )
 }

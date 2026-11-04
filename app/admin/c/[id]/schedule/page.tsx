@@ -88,8 +88,8 @@ export default async function SchedulePage({ params, searchParams }: { params: {
 
       <form action={generateSchedule} className="card mb-6">
         <input type="hidden" name="id" value={id} />
-        <h2 className="mb-1 font-bold text-blue">{t('generate')}</h2>
-        <p className="mb-3 text-sm text-stone">{t('generateHelp')}</p>
+        <h2 className="mb-1 font-bold text-ink">{t('generate')}</h2>
+        <p className="mb-3 text-sm text-ink/75">{t('generateHelp')}</p>
         <p className="mb-3 text-sm font-medium text-ink">
           {t('planPreview')}: {players.length} {t('playersCount')} ({men} {t('menCount')}, {women} {t('womenCount')}) → {planned} {t('planMatches')} ({t('MD')} {plan.md}, {t('XD')} {plan.xd}),{' '}
           {planRounds} {t('planRounds')}, {t('planFinish')} {roundTime(comp.start_time, comp.slot_minutes, planRounds + 1)}, ~{perMan.toFixed(1)} {t('menPlay')}.{' '}
@@ -115,7 +115,7 @@ export default async function SchedulePage({ params, searchParams }: { params: {
             <input id="seed" name="seed" type="number" min={0} max={1000000} defaultValue={Math.floor(Math.random() * 9999)} className="input" />
           </div>
         </div>
-        <p className="mb-3 mt-1 text-xs text-stone">{t('seedHelp')}</p>
+        <p className="mb-3 mt-1 text-xs text-ink/75">{t('seedHelp')}</p>
         <button className="btn-accent">{t('generate')}</button>
       </form>
 
@@ -132,24 +132,24 @@ export default async function SchedulePage({ params, searchParams }: { params: {
         </form>
       )}
 
-      {rounds.length === 0 && <p className="mb-6 text-sm text-stone">{t('noMatches')}</p>}
+      {rounds.length === 0 && <p className="mb-6 text-sm text-ink/75">{t('noMatches')}</p>}
       <div className="mb-8 space-y-4">
         {rounds.map((r) => (
           <section key={r}>
-            <h3 className="mb-1 text-sm font-bold uppercase tracking-wide text-stone">
+            <h3 className="mb-1 text-sm font-bold uppercase tracking-wide text-ink/75">
               {t('round')} {r} · {roundTime(comp.start_time, comp.slot_minutes, r)}
             </h3>
-            <ul className="divide-y divide-mist rounded-xl border border-mist bg-paper">
+            <ul className="glass divide-y divide-ink/10 overflow-hidden">
               {matches.filter((m) => m.round === r).map((m) => {
                 const w = warn(m)
                 return (
                   <li key={m.id} className={`flex flex-wrap items-center gap-x-3 gap-y-1 border-l-4 px-3 py-2 text-sm ${TONE[m.event].side}`}>
-                    <span className="w-14 font-semibold text-stone">{t('court')} {m.court}</span>
+                    <span className="w-14 font-semibold text-ink/75">{t('court')} {m.court}</span>
                     <span className={`chip ${TONE[m.event].chip}`}>{t(m.event)}</span>
-                    <span className="flex-1">{nm(m.a1)} / {nm(m.a2)} <span className="text-stone">{t('vs')}</span> {nm(m.b1)} / {nm(m.b2)}</span>
+                    <span className="flex-1">{nm(m.a1)} / {nm(m.a2)} <span className="text-ink/75">{t('vs')}</span> {nm(m.b1)} / {nm(m.b2)}</span>
                     {m.status === 'done' && <span className="chip bg-leaf/30 text-ink">{m.score_a}–{m.score_b}</span>}
                     {w.map((x) => <span key={x} title={x} className="chip bg-sun text-ink">⚠ {x}</span>)}
-                    {m.status !== 'done' && <Link href={`/admin/c/${id}/schedule?m=${m.id}#edit`} className="rounded-lg border border-mist px-3 py-2 font-semibold text-blue hover:bg-mist/40">{t('edit')}</Link>}
+                    {m.status !== 'done' && <Link href={`/admin/c/${id}/schedule?m=${m.id}#edit`} className="rounded-lg border border-mist px-3 py-2 font-semibold text-ink hover:bg-mist/40">{t('edit')}</Link>}
                   </li>
                 )
               })}
@@ -160,7 +160,7 @@ export default async function SchedulePage({ params, searchParams }: { params: {
 
       {players.length >= 4 && (
         <details className="card">
-          <summary className="cursor-pointer font-bold text-blue">{t('addMatch')}</summary>
+          <summary className="cursor-pointer py-2 font-bold text-ink">{t('addMatch')}</summary>
           <form action={addMatch} className="mt-3">
             <input type="hidden" name="comp" value={id} />
             <MatchFields players={players} t={t} />

@@ -17,11 +17,11 @@ function ScoreCard({ m, comp, nm, t, round, start }: { m: Match; comp: number; n
       : m.status === 'done'
         ? { label: t('mDone'), cls: 'bg-leaf text-ink' }
         : m.status === 'cancelled'
-          ? { label: t('mCancelled'), cls: 'bg-mist text-stone line-through' }
-          : { label: t('mScheduled'), cls: 'bg-mist text-stone' }
-  const scoreCls = `h-14 w-20 rounded-xl border-2 text-center text-3xl font-extrabold tabular-nums text-ink bg-paper ${tone.border}`
+          ? { label: t('mCancelled'), cls: 'bg-mist text-ink line-through' }
+          : { label: t('mScheduled'), cls: 'bg-mist text-ink' }
+  const scoreCls = 'h-14 w-20 rounded-xl border-2 border-ink/30 bg-paper text-center text-3xl font-extrabold tabular-nums text-ink'
   return (
-    <form action={scoreMatch} className={`overflow-hidden rounded-2xl border-2 bg-paper shadow-sm ${tone.border}`}>
+    <form action={scoreMatch} className={`glass overflow-hidden ${tone.wash}`}>
       <input type="hidden" name="id" value={m.id} />
       <input type="hidden" name="comp" value={comp} />
       <input type="hidden" name="version" value={m.version} />
@@ -32,7 +32,7 @@ function ScoreCard({ m, comp, nm, t, round, start }: { m: Match; comp: number; n
         <span>{start}</span>
         <span className="ml-auto">{t(m.event)}</span>
       </header>
-      <div className="divide-y divide-mist">
+      <div className="divide-y divide-ink/10">
         <div className="flex items-center gap-3 px-4 py-3">
           <p className="min-w-0 flex-1 text-base font-medium">{nm(m.a1)}<br />{nm(m.a2)}</p>
           <input name="score_a" type="number" inputMode="numeric" min={0} max={99} aria-label={`${t('sideA')} ${t('score')}`} defaultValue={m.score_a ?? ''} className={scoreCls} />
@@ -42,7 +42,7 @@ function ScoreCard({ m, comp, nm, t, round, start }: { m: Match; comp: number; n
           <input name="score_b" type="number" inputMode="numeric" min={0} max={99} aria-label={`${t('sideB')} ${t('score')}`} defaultValue={m.score_b ?? ''} className={scoreCls} />
         </div>
       </div>
-      <footer className="flex flex-wrap items-center gap-x-2 gap-y-3 bg-cloud px-4 py-3">
+      <footer className="flex flex-wrap items-center gap-x-2 gap-y-3 bg-paper/30 px-4 py-3">
         <span className={`chip ${status.cls}`}>{status.label}</span>
         <div className="grid w-full grid-cols-2 gap-2 sm:ml-auto sm:flex sm:w-auto sm:flex-wrap">
           {!locked && <button name="intent" value="done" className="btn-primary col-span-2 py-3 sm:col-span-1 sm:py-2">{t('saveFinal')}</button>}
@@ -72,7 +72,7 @@ export default async function ScoresPage({ params, searchParams }: { params: { i
 
   const Round = ({ r }: { r: number }) => (
     <section className="mb-6">
-      <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-stone">
+      <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-ink/75">
         {t('round')} {r} · {roundTime(comp.start_time, comp.slot_minutes, r)}
       </h2>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -84,11 +84,11 @@ export default async function ScoresPage({ params, searchParams }: { params: { i
   return (
     <>
       <Banner ok={searchParams.ok} err={searchParams.err} />
-      {rounds.length === 0 && <p className="text-sm text-stone">{t('noMatches')}</p>}
+      {rounds.length === 0 && <p className="text-sm text-ink/75">{t('noMatches')}</p>}
       {open.map((r) => <Round key={r} r={r} />)}
       {closed.length > 0 && (
         <details className="mt-6">
-          <summary className="mb-3 cursor-pointer font-bold text-blue">{t('completedRounds')} ({closed.length})</summary>
+          <summary className="mb-3 cursor-pointer font-bold text-ink">{t('completedRounds')} ({closed.length})</summary>
           {closed.map((r) => <Round key={r} r={r} />)}
         </details>
       )}

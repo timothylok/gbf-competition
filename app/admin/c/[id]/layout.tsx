@@ -14,8 +14,8 @@ export default async function CompLayout({ children, params }: { children: React
   return (
     <>
       <div className="mb-3 flex flex-wrap items-baseline gap-3">
-        <h1 className="text-xl font-bold text-blue">{comp.name}</h1>
-        <Link href={`/?c=${comp.id}`} className="inline-block py-2 text-sm text-stone hover:underline">{t('viewPublic')} →</Link>
+        <h1 className="text-xl font-bold text-ink">{comp.name}</h1>
+        <Link href={`/?c=${comp.id}`} className="inline-block py-2 text-sm text-ink/75 hover:underline">{t('viewPublic')} →</Link>
       </div>
       <AdminTabs id={comp.id} labels={{ overview: t('tabOverview'), players: t('tabPlayers'), schedule: t('tabSchedule'), scores: t('tabScores') }} />
       {children}
