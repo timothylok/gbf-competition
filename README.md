@@ -46,7 +46,7 @@ Only one admin can be signed in at a time, so agree who keeps score. Always pres
 otherwise the next person waits until the 20-minute inactivity limit passes.
 
 1. **Admin → New competition** (date, start time, courts, minutes per match). It starts as *Draft*, which is hidden from the public.
-2. **Players tab:** paste one per line as `nickname, M or F, optional grade` (grade 1 = strongest). Use nicknames, since they are shown publicly.
+2. **Players tab:** paste one per line as `nickname, M or F, optional grade` (grade A = strongest, then B, C, D). Use nicknames, since they are shown publicly.
 3. **Schedule tab:** check the plan preview, then **Generate**. Change the draw number for a different draw.
    Set the games per man (men's doubles), games per woman (mixed doubles) and the time limit in hours; a draw that
    would run past the limit is refused.
@@ -62,12 +62,12 @@ otherwise the next person waits until the 20-minute inactivity limit passes.
 Men's doubles come first, mixed doubles second:
 
 1. Every man plays the set number of **men's doubles** games (default 4).
-2. Every woman plays the set number of **mixed doubles** games (default 4). Women only play mixed.
+2. Every woman plays the set number of **mixed doubles** games (default 4). Women only play mixed. By default half of them (2) are **handicap** games: two women against two men, with a head start for the women (4 points at the same grade, 6 when one grade lower; half for one woman plus one man). The head start is shown on the match; the scorekeeper includes it when entering the score. See `docs/game-rules.md`.
 3. Men fill the other two places in each mixed match as **extra games**, with no cap. The scheduler always picks the men
    with the fewest games, so extras are spread evenly (typically within 2 games of each other).
 4. In each round men's doubles are placed first (lower court numbers), then mixed.
 5. No player is in two matches in a round, partners are not repeated if it can be avoided, and players who just sat out
-   are preferred for the next round. Optional grades (1 = strongest) are used to keep sides balanced.
+   are preferred for the next round. Optional grades (A = strongest) are used to keep sides balanced. A B-grade player is never partnered with a D-grade player, and players ticked **Happy to partner D grade** are preferred as partners for D grades.
 
 Examples at 4 games each, 5 courts, 15-minute matches:
 

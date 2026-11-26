@@ -15,19 +15,19 @@ const WINDOW_ROUNDS = 20 // 5 hours of 15-minute rounds
 
 describe('planCounts: men\'s doubles first, mixed second', () => {
   it('gives every man his men\'s doubles games and every woman her mixed games', () => {
-    assert.deepEqual(planCounts(44, 20, T), { md: 44, xd: 40 })
-    assert.deepEqual(planCounts(50, 14, T), { md: 50, xd: 28 })
-    assert.deepEqual(planCounts(40, 24, T), { md: 40, xd: 48 })
-    assert.deepEqual(planCounts(32, 32, T), { md: 32, xd: 64 })
+    assert.deepEqual(planCounts(44, 20, T), { md: 44, xd: 40, hd: 0 })
+    assert.deepEqual(planCounts(50, 14, T), { md: 50, xd: 28, hd: 0 })
+    assert.deepEqual(planCounts(40, 24, T), { md: 40, xd: 48, hd: 0 })
+    assert.deepEqual(planCounts(32, 32, T), { md: 32, xd: 64, hd: 0 })
   })
   it('handles one-sided and tiny pools', () => {
-    assert.deepEqual(planCounts(64, 0, T), { md: 64, xd: 0 }, 'no women: men\'s doubles only')
-    assert.deepEqual(planCounts(3, 10, T), { md: 0, xd: 20 }, 'fewer than 4 men: no men\'s doubles')
-    assert.deepEqual(planCounts(10, 1, T), { md: 10, xd: 0 }, 'one woman cannot make a mixed match')
-    assert.deepEqual(planCounts(0, 0, T), { md: 0, xd: 0 })
+    assert.deepEqual(planCounts(64, 0, T), { md: 64, xd: 0, hd: 0 }, 'no women: men\'s doubles only')
+    assert.deepEqual(planCounts(3, 10, T), { md: 0, xd: 20, hd: 0 }, 'fewer than 4 men: no men\'s doubles')
+    assert.deepEqual(planCounts(10, 1, T), { md: 10, xd: 0, hd: 0 }, 'one woman cannot make a mixed match')
+    assert.deepEqual(planCounts(0, 0, T), { md: 0, xd: 0, hd: 0 })
   })
   it('honours different targets per event', () => {
-    assert.deepEqual(planCounts(40, 20, { mdGames: 3, xdGames: 2 }), { md: 30, xd: 20 })
+    assert.deepEqual(planCounts(40, 20, { mdGames: 3, xdGames: 2 }), { md: 30, xd: 20, hd: 0 })
   })
   it('computes the rounds needed for the courts', () => {
     assert.equal(roundsNeeded(84, 5), 17)
@@ -134,5 +134,53 @@ describe('generatePlan quality', () => {
     const diffs = plan.matches.map((m) => Math.abs(grade.get(m.a1)! + grade.get(m.a2)! - (grade.get(m.b1)! + grade.get(m.b2)!)))
     const avg = diffs.reduce((a, b) => a + b, 0) / diffs.length
     assert(avg < 1.5, `average grade gap between sides is ${avg.toFixed(2)}`)
+  })
+})
+
+describe('handicap games in the draw', () => {
+  const players = (men: number, women: number): SchedPlayer[] => {
+    const ps: SchedPlayer[] = []
+    for (let i = 0; i < men; i++) ps.push({ id: i + 1, gender: 'M', grade: [2, 3, 3, 3, 4][i % 5] })
+    for (let i = 0; i < women; i++) ps.push({ id: men + i + 1, gender: 'F', grade: [2, 3, 3, 3, 4][i % 5] })
+    return ps
+  }
+  const TH = { mdGames: 4, xdGames: 4, hdGames: 2 }
+
+  it('replaces half of each woman\'s mixed games with women-vs-men handicap games', () => {
+    assert.deepEqual(planCounts(17, 15, TH), { md: 17, xd: 15, hd: 15 })
+    assert.deepEqual(planCounts(40, 20, { ...TH, hdGames: 9 }), { md: 40, xd: 0, hd: 40 }, 'capped at the mixed games')
+  })
+
+  for (const [men, women] of [[17, 15], [24, 18], [30, 10], [12, 12]] as const) {
+    it(`${men} men / ${women} women: every woman plays her games, handicap matches are women vs men`, () => {
+      const ps = players(men, women)
+      const plan = generatePlan(ps, 5, TH, 3)
+      const g = new Map(ps.map((p) => [p.id, p.gender]))
+      let hd = 0
+      for (const m of plan.matches) {
+        const ids = [m.a1, m.a2, m.b1, m.b2]
+        const women4 = ids.filter((i) => g.get(i) === 'F').length
+        if (m.event === 'XD' && women4 === 2 && g.get(m.a1) === g.get(m.a2)) {
+          hd++
+          assert.equal(g.get(m.a1), 'F', 'side A is the women')
+          assert.equal(g.get(m.b1), 'M', 'side B is the men')
+        }
+      }
+      assert.equal(hd, plan.hdCount)
+      for (const p of ps.filter((x) => x.gender === 'F')) assert.equal(plan.gamesPerPlayer.get(p.id), 4, 'four women\'s games each')
+      assert.equal(plan.matches.length, plan.mdCount + plan.xdCount + plan.hdCount)
+    })
+  }
+
+  it('never partners a B-grade player with a D-grade player (men\'s, mixed and handicap)', () => {
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const ps = players(24, 18)
+      const grade = new Map(ps.map((p) => [p.id, p.grade]))
+      const plan = generatePlan(ps, 5, TH, seed)
+      const bad = (x: number, y: number) => (grade.get(x) === 2 && grade.get(y) === 4) || (grade.get(x) === 4 && grade.get(y) === 2)
+      for (const m of plan.matches) {
+        assert(!bad(m.a1, m.a2) && !bad(m.b1, m.b2), `seed ${seed}: B partnered with D in round ${m.round}`)
+      }
+    }
   })
 })

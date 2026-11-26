@@ -1,13 +1,13 @@
-import type { EventType } from './types'
+import type { MatchKind } from './types'
 
 /**
  * Event colours, all from the Pantone palette in tailwind.config.ts:
- * men's doubles = PANTONE 2995 C (#00A9E0), mixed doubles = PANTONE 812 C (neon pink).
+ * men's doubles = PANTONE 2995 C (#00A9E0), mixed doubles = PANTONE 812 C (neon pink), handicap doubles = PANTONE 16-1546 Living Coral.
  * Header strips and winning scores are solid colour; the glass panel body takes a light wash of the
  * same colour. Both colours are light, so text on them is Black 6 C (white on 2995 C is 2.5:1, on 812 C 2.6:1).
  */
 export const TONE: Record<
-  EventType,
+  MatchKind,
   { band: string; wash: string; tint: string; win: string; side: string; chip: string }
 > = {
   MD: {
@@ -25,5 +25,13 @@ export const TONE: Record<
     win: 'bg-pink text-ink',
     side: 'border-l-pink',
     chip: 'bg-pink text-ink',
+  },
+  HD: {
+    band: 'bg-coral text-ink',
+    wash: 'bg-coral/15',
+    tint: 'bg-coral/25 text-ink',
+    win: 'bg-coral text-ink',
+    side: 'border-l-coral',
+    chip: 'bg-coral text-ink',
   },
 }

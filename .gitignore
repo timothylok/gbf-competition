@@ -9,3 +9,4 @@ next-env.d.ts
 .next-test
 .e2e-tmp
 tests/e2e/.artifacts
+docs/player-list.txt*

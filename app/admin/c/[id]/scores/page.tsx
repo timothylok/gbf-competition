@@ -4,13 +4,16 @@ import { requireAdmin } from '@/lib/auth'
 import { scoreMatch } from '@/lib/actions'
 import { getT, type T } from '@/lib/i18n'
 import { getCompetition, getMatches, getPlayers } from '@/lib/queries'
-import { roundTime } from '@/lib/time'
+import { roundRange } from '@/lib/time'
 import { TONE } from '@/lib/event-tone'
+import { headStartOf, matchKind, type Lineup } from '@/lib/handicap'
 import type { Match } from '@/lib/types'
 
-function ScoreCard({ m, comp, nm, t, round, start }: { m: Match; comp: number; nm: (i: number) => string; t: T; round: number; start: string }) {
+function ScoreCard({ m, comp, nm, info, t, round, start }: { m: Match; comp: number; nm: (i: number) => string; info: Record<number, Lineup>; t: T; round: number; start: string }) {
   const locked = m.status === 'done' || m.status === 'cancelled'
-  const tone = TONE[m.event]
+  const kind = matchKind(m, info)
+  const tone = TONE[kind]
+  const hs = headStartOf(m, info)
   const status =
     m.status === 'live'
       ? { label: t('mLive'), cls: 'live-badge' }
@@ -30,8 +33,13 @@ function ScoreCard({ m, comp, nm, t, round, start }: { m: Match; comp: number; n
         <span>{t('court')} {m.court}</span>
         <span aria-hidden>·</span>
         <span>{start}</span>
-        <span className="ml-auto">{t(m.event)}</span>
+        <span className="ml-auto">{t(kind)}</span>
       </header>
+      {hs && (
+        <p className="bg-paper/40 px-4 py-1 text-xs font-semibold text-ink">
+          {hs.covered ? `${t('headStart')}${hs.points} (${hs.side === 'a' ? t('sideA') : t('sideB')})` : t('headStartTbc')}
+        </p>
+      )}
       <div className="divide-y divide-ink/10">
         <div className="flex items-center gap-3 px-4 py-3">
           <p className="min-w-0 flex-1 text-base font-medium">{nm(m.a1)}<br />{nm(m.a2)}</p>
@@ -64,6 +72,7 @@ export default async function ScoresPage({ params, searchParams }: { params: { i
   const [players, matches] = await Promise.all([getPlayers(id), getMatches(id)])
   const names = new Map(players.map((p) => [p.id, p.nickname]))
   const nm = (i: number) => names.get(i) ?? '?'
+  const info = Object.fromEntries(players.map((p) => [p.id, { gender: p.gender, grade: p.grade }]))
 
   const rounds = [...new Set(matches.map((m) => m.round))].sort((a, b) => a - b)
   const isOpen = (r: number) => matches.some((m) => m.round === r && (m.status === 'scheduled' || m.status === 'live'))
@@ -73,10 +82,10 @@ export default async function ScoresPage({ params, searchParams }: { params: { i
   const Round = ({ r }: { r: number }) => (
     <section className="mb-6">
       <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-ink/75">
-        {t('round')} {r} · {roundTime(comp.start_time, comp.slot_minutes, r)}
+        {t('round')} {r} · {roundRange(comp.start_time, comp.slot_minutes, r)} ({comp.slot_minutes} {t('minShort')})
       </h2>
       <div className="grid gap-3 sm:grid-cols-2">
-        {matches.filter((m) => m.round === r).map((m) => <ScoreCard key={m.id} m={m} comp={id} nm={nm} t={t} round={r} start={roundTime(comp.start_time, comp.slot_minutes, r)} />)}
+        {matches.filter((m) => m.round === r).map((m) => <ScoreCard key={m.id} m={m} comp={id} nm={nm} info={info} t={t} round={r} start={roundRange(comp.start_time, comp.slot_minutes, r)} />)}
       </div>
     </section>
   )

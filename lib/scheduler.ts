@@ -1,9 +1,12 @@
 import type { EventType, Gender } from './types'
+import { headStart } from './handicap'
 
 export interface SchedPlayer {
   id: number
   gender: Gender
   grade: number | null
+  /** Happy to partner a D-grade player; the draw prefers these partners for D grades. */
+  dFriendly?: boolean
 }
 export interface PlannedMatch {
   event: EventType
@@ -17,14 +20,18 @@ export interface PlannedMatch {
 export interface Targets {
   /** Men's doubles games each man should play. */
   mdGames: number
-  /** Mixed doubles games each woman should play. */
+  /** Mixed doubles games each woman should play (handicap games are part of these). */
   xdGames: number
+  /** How many of those games are women-vs-men handicap games (default 0). */
+  hdGames?: number
 }
 export interface Plan {
   matches: PlannedMatch[]
   rounds: number
   mdCount: number
   xdCount: number
+  /** Women-vs-men handicap matches (stored with event XD, counted separately here). */
+  hdCount: number
   gamesPerPlayer: Map<number, number>
   mdGamesPerPlayer: Map<number, number>
   warnings: string[]
@@ -58,8 +65,11 @@ function shuffle<T>(arr: T[], rand: () => number): T[] {
  */
 export function planCounts(men: number, women: number, t: Targets) {
   const md = men >= 4 ? Math.floor((men * t.mdGames) / 4) : 0
-  const xd = men >= 2 && women >= 2 ? Math.floor((women * t.xdGames) / 2) : 0
-  return { md, xd }
+  const hdGames = Math.min(Math.max(t.hdGames ?? 0, 0), t.xdGames)
+  const ok = men >= 2 && women >= 2
+  const hd = ok ? Math.floor((women * hdGames) / 2) : 0
+  const xd = ok ? Math.floor((women * (t.xdGames - hdGames)) / 2) : 0
+  return { md, xd, hd }
 }
 
 /** Rounds needed: each round uses every court at most once. */
@@ -75,6 +85,20 @@ const key = (a: number, b: number) => (a < b ? `${a}-${b}` : `${b}-${a}`)
 
 type Pair = [SchedPlayer, SchedPlayer]
 
+const GRADE_B = 2
+const GRADE_D = 4
+/** A B-grade player is never partnered with a D-grade player (hard rule, so a huge cost). */
+export const isBadPartner = (x: SchedPlayer, y: SchedPlayer) =>
+  (x.grade === GRADE_B && y.grade === GRADE_D) || (x.grade === GRADE_D && y.grade === GRADE_B)
+
+/** Cost of partnering x with y: B with D is forbidden; D players prefer a partner who is happy to help. */
+function partnerPenalty(x: SchedPlayer, y: SchedPlayer): number {
+  if (isBadPartner(x, y)) return 1000
+  const other = x.grade === GRADE_D ? y : y.grade === GRADE_D ? x : null
+  if (other && other.grade !== GRADE_D && !other.dFriendly) return 2
+  return 0
+}
+
 /** Cheapest way to split four players into two pairs; XD forces one man + one woman per side. */
 function bestPairing(p: SchedPlayer[], event: EventType, h: History): { cost: number; a: Pair; b: Pair } {
   const options: [number, number, number, number][] = [
@@ -88,6 +112,7 @@ function bestPairing(p: SchedPlayer[], event: EventType, h: History): { cost: nu
     const B: Pair = [p[k], p[l]]
     if (event === 'XD' && (A[0].gender === A[1].gender || B[0].gender === B[1].gender)) continue
     let cost = (h.partner.get(key(A[0].id, A[1].id)) ?? 0) * 10 + (h.partner.get(key(B[0].id, B[1].id)) ?? 0) * 10
+    cost += partnerPenalty(A[0], A[1]) + partnerPenalty(B[0], B[1])
     for (const x of A) for (const y of B) cost += (h.opponent.get(key(x.id, y.id)) ?? 0) * 2
     const sa = (A[0].grade ?? 0) + (A[1].grade ?? 0)
     const sb = (B[0].grade ?? 0) + (B[1].grade ?? 0)
@@ -97,6 +122,21 @@ function bestPairing(p: SchedPlayer[], event: EventType, h: History): { cost: nu
   return best ?? { cost: 1e9, a: [p[0], p[1]], b: [p[2], p[3]] }
 }
 
+/** Women's pair against a men's pair; the head start rules decide whether the grades fit. */
+function handicapMatch(w: SchedPlayer[], m: SchedPlayer[], h: History): { cost: number; a: Pair; b: Pair } {
+  const A: Pair = [w[0], w[1]]
+  const B: Pair = [m[0], m[1]]
+  let cost = (h.partner.get(key(A[0].id, A[1].id)) ?? 0) * 10 + (h.partner.get(key(B[0].id, B[1].id)) ?? 0) * 10
+  cost += partnerPenalty(A[0], A[1]) + partnerPenalty(B[0], B[1])
+  for (const x of A) for (const y of B) cost += (h.opponent.get(key(x.id, y.id)) ?? 0) * 2
+  const hs = headStart(
+    [{ gender: 'F', grade: A[0].grade }, { gender: 'F', grade: A[1].grade }],
+    [{ gender: 'M', grade: B[0].grade }, { gender: 'M', grade: B[1].grade }],
+  )
+  if (!hs?.covered) cost += 20 // grades the head start rules don't cover
+  return { cost, a: A, b: B }
+}
+
 function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, seed: number): Plan & { cost: number } {
   const rand = rng(seed)
   const men = players.filter((p) => p.gender === 'M')
@@ -104,6 +144,7 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
   const counts = planCounts(men.length, women.length, targets)
   const warnings: string[] = []
   let xdLeft = counts.xd
+  let hdLeft = counts.hd
   let mdLeft = counts.md
 
   const played = new Map(players.map((p) => [p.id, 0]))
@@ -123,16 +164,22 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
   let round = 0
   while (xdLeft + mdLeft > 0 && round < 60) {
     round++
-    const left = xdLeft + mdLeft
+    // Women's matches are mixed (one man + one woman per side) or handicap (women vs men).
+    const wLeft = xdLeft + hdLeft
+    const left = wLeft + mdLeft
     const slots = Math.min(courts, left)
-    // Spread men's and mixed matches proportionally across the rounds.
-    let b = Math.round((slots * xdLeft) / left)
+    // Spread men's and women's matches proportionally across the rounds.
+    let b = Math.round((slots * wLeft) / left)
     let a = Math.min(slots - b, mdLeft)
-    b = Math.min(b, xdLeft, Math.floor(women.length / 2), Math.floor(men.length / 2))
+    b = Math.min(b, wLeft, Math.floor(women.length / 2), Math.floor(men.length / 2))
     while (a > 0 && 4 * a + 2 * b > men.length) a--
     // Use any spare courts for more men's doubles (they come first).
     while (a + b < slots && a < mdLeft && 4 * (a + 1) + 2 * b <= men.length) a++
     if (a + b === 0) break
+    // Split this round's women's matches between handicap and mixed in proportion to what is left.
+    const h = wLeft > 0 ? Math.min(hdLeft, Math.round((b * hdLeft) / wLeft)) : 0
+    const x = Math.min(b - h, xdLeft)
+    b = x + h
 
     // Men's doubles first: choose men with the fewest men's doubles games so far.
     const mdMen = pick(men, (p) => playedMD.get(p.id)!, round).slice(0, 4 * a)
@@ -158,9 +205,15 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
         cost += r.cost
         ms.push({ event: 'MD', round, court: 0, a1: r.a[0].id, a2: r.a[1].id, b1: r.b[0].id, b2: r.b[1].id })
       }
-      for (let i = 0; i < b; i++) {
+      for (let i = 0; i < x; i++) {
         const r = bestPairing([xm[2 * i], xm[2 * i + 1], xw[2 * i], xw[2 * i + 1]], 'XD', hist)
         cost += r.cost
+        ms.push({ event: 'XD', round, court: 0, a1: r.a[0].id, a2: r.a[1].id, b1: r.b[0].id, b2: r.b[1].id })
+      }
+      for (let i = x; i < b; i++) {
+        const r = handicapMatch([xw[2 * i], xw[2 * i + 1]], [xm[2 * i], xm[2 * i + 1]], hist)
+        cost += r.cost
+        // Event stays XD (a women's match); the women-vs-men line-up is what makes it a handicap match.
         ms.push({ event: 'XD', round, court: 0, a1: r.a[0].id, a2: r.a[1].id, b1: r.b[0].id, b2: r.b[1].id })
       }
       if (!bestRound || cost < bestRound.cost) bestRound = { cost, ms }
@@ -180,13 +233,14 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
       hist.partner.set(key(mt.b1, mt.b2), (hist.partner.get(key(mt.b1, mt.b2)) ?? 0) + 1)
       for (const x of [mt.a1, mt.a2]) for (const y of [mt.b1, mt.b2]) hist.opponent.set(key(x, y), (hist.opponent.get(key(x, y)) ?? 0) + 1)
     })
-    xdLeft -= b
+    xdLeft -= x
+    hdLeft -= h
     mdLeft -= a
   }
 
-  const unplaced = xdLeft + mdLeft
+  const unplaced = xdLeft + hdLeft + mdLeft
   if (unplaced > 0) warnings.push(`${unplaced} planned match(es) could not be placed.`)
-  return { matches: out, rounds: round, mdCount: counts.md, xdCount: counts.xd, gamesPerPlayer: played, mdGamesPerPlayer: playedMD, warnings, cost: totalCost }
+  return { matches: out, rounds: round, mdCount: counts.md, xdCount: counts.xd, hdCount: counts.hd, gamesPerPlayer: played, mdGamesPerPlayer: playedMD, warnings, cost: totalCost }
 }
 
 /** Build a draw. Tries several seeds and keeps the one with the fewest repeat partners/opponents. */

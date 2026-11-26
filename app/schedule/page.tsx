@@ -12,7 +12,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: { c
   const { t } = getT()
   const data = await loadPublic(searchParams.c)
   if (!data) return <p className="card text-ink/75">{t('noEvent')}</p>
-  const { comp, players, matches, names } = data
+  const { comp, players, matches, names, info } = data
 
   const pid = Number(searchParams.p) || null
   const shown = pid ? matches.filter((m) => [m.a1, m.a2, m.b1, m.b2].includes(pid)) : matches
@@ -40,7 +40,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: { c
             {t('round')} {r} · {roundTime(comp.start_time, comp.slot_minutes, r)}
           </h2>
           <div className="grid gap-3 sm:grid-cols-2">
-            {shown.filter((m) => m.round === r).map((m) => <MatchCard key={m.id} m={m} names={names} comp={comp} />)}
+            {shown.filter((m) => m.round === r).map((m) => <MatchCard key={m.id} m={m} names={names} info={info} comp={comp} />)}
           </div>
         </section>
       ))}

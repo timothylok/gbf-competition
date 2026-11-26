@@ -12,6 +12,12 @@ describe('parsePlayerLines (bulk player entry)', () => {
     ])
     assert.equal(skipped, 0)
   })
+  it('accepts letter grades A-I (A = strongest, case-insensitive) as well as digits', () => {
+    const { players, skipped } = parsePlayerLines('Ann, M, A\nBob, M, c\nCy, F, D\nDee, M, 2\nEd, M, I')
+    assert.deepEqual(players.map((p) => p.grade), [1, 3, 4, 2, 9])
+    assert.equal(skipped, 0)
+    assert.equal(parsePlayerLines('X, M, J\nY, M, AB').skipped, 2)
+  })
   it('accepts Chinese genders and Chinese commas / tabs / semicolons', () => {
     const { players } = parsePlayerLines('小明，男，1\n小美\t女\t2\nJoe;male;3\nAnn；female')
     assert.deepEqual(players.map((p) => [p.nickname, p.gender, p.grade]), [

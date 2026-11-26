@@ -96,7 +96,7 @@ export async function createCompetition(page: Page, name = 'E2E Competition'): P
   return id
 }
 
-/** "M01, M, 2" lines. Men are M01.., women F01.., grades cycle 1-3. */
+/** "M01, M, 2" lines. Men are M01.., women F01.., grades cycle 1-3 (digits still accepted). */
 export function roster(men: number, women: number): string {
   const pad = (n: number) => String(n).padStart(2, '0')
   const lines: string[] = []

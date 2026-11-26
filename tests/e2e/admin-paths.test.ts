@@ -114,7 +114,7 @@ describe('admin: players, matches, scores, competitions', () => {
         const f = [...document.forms].find((x) => x.querySelector('[name=comp]') && !x.querySelector('[name=id]') && x.querySelector('[name=a1]')) as HTMLFormElement
         ;['a1', 'a2', 'b1', 'b2'].forEach((n, i) => ((f.querySelector(`[name=${n}]`) as HTMLSelectElement).selectedIndex = i + 1))
         ;(f.querySelector('[name=event]') as HTMLSelectElement).value = 'MD'
-        ;(f.querySelector('[name=round]') as HTMLInputElement).value = '40'
+        ;(f.querySelector('[name=round]') as HTMLInputElement).value = '20'
         ;(f.querySelector('[name=court]') as HTMLInputElement).value = '1'
         f.requestSubmit()
       })

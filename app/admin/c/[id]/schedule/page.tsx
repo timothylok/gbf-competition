@@ -2,25 +2,28 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Banner } from '@/components/Banner'
 import { requireAdmin } from '@/lib/auth'
+import { gradeToLetter } from '@/lib/grade'
+import { headStartOf, matchKind } from '@/lib/handicap'
+import { isBadPartner } from '@/lib/scheduler'
 import { addMatch, deleteMatch, generateSchedule, saveMatch } from '@/lib/actions'
 import { getT, type T } from '@/lib/i18n'
 import { getCompetition, getMatches, getPlayers } from '@/lib/queries'
 import { planCounts, roundsNeeded } from '@/lib/scheduler'
-import { roundTime } from '@/lib/time'
+import { limitMinutes, maxRoundsFor, roundRange, roundTime } from '@/lib/time'
 import { TONE } from '@/lib/event-tone'
 import type { Match, Player } from '@/lib/types'
 
 // Defaults for a typical event: 4 games each, 5-hour limit.
 const DEFAULT_MD = 4
 const DEFAULT_XD = 4
-const DEFAULT_HOURS = 5
+const DEFAULT_HD = 2 // of the mixed games: every second one is women vs men with a head start
 
 function PlayerSelect({ name, players, value, label }: { name: string; players: Player[]; value?: number; label: string }) {
   return (
     <select name={name} aria-label={label} defaultValue={value} required className="input">
       {value === undefined && <option value="">{label}</option>}
       {players.map((p) => (
-        <option key={p.id} value={p.id}>{p.nickname} ({p.gender}{p.grade ? p.grade : ''})</option>
+        <option key={p.id} value={p.id}>{p.nickname} ({p.gender}{gradeToLetter(p.grade)})</option>
       ))}
     </select>
   )
@@ -61,20 +64,27 @@ export default async function SchedulePage({ params, searchParams }: { params: {
   const byId = new Map(players.map((p) => [p.id, p]))
   const men = players.filter((p) => p.gender === 'M').length
   const women = players.length - men
-  const plan = planCounts(men, women, { mdGames: DEFAULT_MD, xdGames: DEFAULT_XD })
-  const planned = plan.md + plan.xd
+  const plan = planCounts(men, women, { mdGames: DEFAULT_MD, xdGames: DEFAULT_XD, hdGames: DEFAULT_HD })
+  const planned = plan.md + plan.xd + plan.hd
   const planRounds = roundsNeeded(planned, comp.courts)
-  const maxRounds = Math.floor((DEFAULT_HOURS * 60) / comp.slot_minutes)
-  const perMan = men > 0 ? DEFAULT_MD + (2 * plan.xd) / men : 0
+  const maxRounds = maxRoundsFor(comp)
+  const perMan = men > 0 ? DEFAULT_MD + (2 * (plan.xd + plan.hd)) / men : 0
+  const info = Object.fromEntries(players.map((p) => [p.id, { gender: p.gender, grade: p.grade }]))
 
   const warn = (m: Match): string[] => {
     const out: string[] = []
     const ids = [m.a1, m.a2, m.b1, m.b2]
+    if (m.round > maxRounds) out.push(t('afterEnd'))
     const same = matches.filter((o) => o.id !== m.id && o.round === m.round && o.status !== 'cancelled')
     if (same.some((o) => o.court === m.court || ids.some((i) => [o.a1, o.a2, o.b1, o.b2].includes(i)))) out.push(t('clash'))
     const g = (i: number) => byId.get(i)?.gender
-    const ok = m.event === 'MD' ? ids.every((i) => g(i) === 'M') : g(m.a1) !== g(m.a2) && g(m.b1) !== g(m.b2)
+    // Mixed doubles is one man + one woman per side; a women-vs-men line-up is a handicap match.
+    const ok = m.event === 'MD' ? ids.every((i) => g(i) === 'M') : (g(m.a1) !== g(m.a2) && g(m.b1) !== g(m.b2)) || !!headStartOf(m, info)
     if (!ok) out.push(t('mismatch'))
+    const pa = [byId.get(m.a1), byId.get(m.a2)]
+    const pb = [byId.get(m.b1), byId.get(m.b2)]
+    const bad = (p: typeof pa) => p[0] && p[1] && isBadPartner(p[0], p[1])
+    if (bad(pa) || bad(pb)) out.push(t('badPair'))
     return out
   }
 
@@ -91,13 +101,13 @@ export default async function SchedulePage({ params, searchParams }: { params: {
         <h2 className="mb-1 font-bold text-ink">{t('generate')}</h2>
         <p className="mb-3 text-sm text-ink/75">{t('generateHelp')}</p>
         <p className="mb-3 text-sm font-medium text-ink">
-          {t('planPreview')}: {players.length} {t('playersCount')} ({men} {t('menCount')}, {women} {t('womenCount')}) → {planned} {t('planMatches')} ({t('MD')} {plan.md}, {t('XD')} {plan.xd}),{' '}
+          {t('planPreview')}: {players.length} {t('playersCount')} ({men} {t('menCount')}, {women} {t('womenCount')}) → {planned} {t('planMatches')} ({t('MD')} {plan.md}, {t('XD')} {plan.xd}, {t('HD')} {plan.hd}),{' '}
           {planRounds} {t('planRounds')}, {t('planFinish')} {roundTime(comp.start_time, comp.slot_minutes, planRounds + 1)}, ~{perMan.toFixed(1)} {t('menPlay')}.{' '}
           <span className={planRounds > maxRounds ? 'font-bold text-ink underline decoration-berry decoration-2' : 'text-ink'}>
             {planRounds > maxRounds ? `⚠ ${t('planOver')}` : `✓ ${t('planFits')}`}
           </span>
         </p>
-        <div className="grid grid-cols-2 gap-3 sm:max-w-xl sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:max-w-3xl sm:grid-cols-5">
           <div>
             <label htmlFor="mdGames" className="label">{t('mdGames')}</label>
             <input id="mdGames" name="mdGames" type="number" min={0} max={10} defaultValue={DEFAULT_MD} className="input" />
@@ -107,8 +117,12 @@ export default async function SchedulePage({ params, searchParams }: { params: {
             <input id="xdGames" name="xdGames" type="number" min={0} max={10} defaultValue={DEFAULT_XD} className="input" />
           </div>
           <div>
+            <label htmlFor="hdGames" className="label">{t('hdGames')}</label>
+            <input id="hdGames" name="hdGames" type="number" min={0} max={10} defaultValue={DEFAULT_HD} className="input" />
+          </div>
+          <div>
             <label htmlFor="hours" className="label">{t('windowHours')}</label>
-            <input id="hours" name="hours" type="number" min={0.5} max={24} step={0.5} defaultValue={DEFAULT_HOURS} className="input" />
+            <input id="hours" name="hours" type="number" min={0.5} max={24} step={0.5} defaultValue={limitMinutes(comp) / 60} className="input" />
           </div>
           <div>
             <label htmlFor="seed" className="label">{t('seed')}</label>
@@ -133,20 +147,28 @@ export default async function SchedulePage({ params, searchParams }: { params: {
       )}
 
       {rounds.length === 0 && <p className="mb-6 text-sm text-ink/75">{t('noMatches')}</p>}
+      {rounds.length > 0 && (
+        <p className="mb-3 text-sm font-semibold text-ink">
+          {t('compEnds')} {roundTime(comp.start_time, comp.slot_minutes, rounds[rounds.length - 1] + 1)}
+        </p>
+      )}
       <div className="mb-8 space-y-4">
         {rounds.map((r) => (
           <section key={r}>
             <h3 className="mb-1 text-sm font-bold uppercase tracking-wide text-ink/75">
-              {t('round')} {r} · {roundTime(comp.start_time, comp.slot_minutes, r)}
+              {t('round')} {r} · {roundRange(comp.start_time, comp.slot_minutes, r)} ({comp.slot_minutes} {t('minShort')})
             </h3>
             <ul className="glass divide-y divide-ink/10 overflow-hidden">
               {matches.filter((m) => m.round === r).map((m) => {
                 const w = warn(m)
+                const kind = matchKind(m, info)
+                const hs = headStartOf(m, info)
                 return (
-                  <li key={m.id} className={`flex flex-wrap items-center gap-x-3 gap-y-1 border-l-4 px-3 py-2 text-sm ${TONE[m.event].side}`}>
+                  <li key={m.id} className={`flex flex-wrap items-center gap-x-3 gap-y-1 border-l-4 px-3 py-2 text-sm ${TONE[kind].side}`}>
                     <span className="w-14 font-semibold text-ink/75">{t('court')} {m.court}</span>
-                    <span className={`chip ${TONE[m.event].chip}`}>{t(m.event)}</span>
+                    <span className={`chip ${TONE[kind].chip}`}>{t(kind)}</span>
                     <span className="flex-1">{nm(m.a1)} / {nm(m.a2)} <span className="text-ink/75">{t('vs')}</span> {nm(m.b1)} / {nm(m.b2)}</span>
+                    {hs && <span className="chip bg-mist text-ink">{hs.covered ? `${t('headStart')}${hs.points}` : t('headStartTbc')}</span>}
                     {m.status === 'done' && <span className="chip bg-leaf/30 text-ink">{m.score_a}–{m.score_b}</span>}
                     {w.map((x) => <span key={x} title={x} className="chip bg-sun text-ink">⚠ {x}</span>)}
                     {m.status !== 'done' && <Link href={`/admin/c/${id}/schedule?m=${m.id}#edit`} className="rounded-lg border border-mist px-3 py-2 font-semibold text-ink hover:bg-mist/40">{t('edit')}</Link>}

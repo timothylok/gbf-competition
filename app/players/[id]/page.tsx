@@ -15,7 +15,7 @@ export default async function PlayerPage({ params, searchParams }: { params: { i
   if (!row) notFound()
   const data = await loadPublic(String(row.competition_id))
   if (!data) notFound()
-  const { comp, players, matches, names } = data
+  const { comp, players, matches, names, info } = data
   const player = players.find((p) => p.id === id)
   if (!player) notFound()
 
@@ -30,7 +30,7 @@ export default async function PlayerPage({ params, searchParams }: { params: { i
         {t('record')}: {rec ? `${rec.won}${t('won')} ${rec.drawn}${t('drawn')} ${rec.lost}${t('lost')} · ${rec.pts} ${t('points')} · ${rec.diff > 0 ? '+' : ''}${rec.diff}` : '—'}
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
-        {mine.map((m) => <MatchCard key={m.id} m={m} names={names} comp={comp} />)}
+        {mine.map((m) => <MatchCard key={m.id} m={m} names={names} info={info} comp={comp} />)}
       </div>
       {mine.length === 0 && <p className="text-sm text-ink/75">{t('noMatches')}</p>}
     </>

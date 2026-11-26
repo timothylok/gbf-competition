@@ -40,6 +40,10 @@ export default async function AdminHome({ searchParams }: { searchParams: { ok?:
             <input id="start_time" name="start_time" type="time" className="input" required defaultValue="09:00" />
           </div>
           <div>
+            <label htmlFor="end_time" className="label">{t('endTime')}</label>
+            <input id="end_time" name="end_time" type="time" className="input" required defaultValue="14:00" />
+          </div>
+          <div>
             <label htmlFor="courts" className="label">{t('courts')}</label>
             <input id="courts" name="courts" type="number" min={1} max={20} className="input" required defaultValue={5} />
           </div>

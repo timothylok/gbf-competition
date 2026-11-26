@@ -2,7 +2,7 @@ import 'server-only'
 import { query } from './db'
 import type { Competition, Match, Player } from './types'
 
-const COMP_COLS = 'id, name, event_date, start_time, courts, slot_minutes, status'
+const COMP_COLS = 'id, name, event_date, start_time, courts, slot_minutes, end_time, status'
 
 export async function listCompetitions(includeDrafts: boolean): Promise<Competition[]> {
   return query<Competition>(
@@ -32,7 +32,7 @@ export async function resolveCompetition(param: string | undefined, isAdmin: boo
 
 export async function getPlayers(competitionId: number): Promise<Player[]> {
   return query<Player>(
-    'SELECT id, competition_id, nickname, gender, grade FROM players WHERE competition_id = $1 ORDER BY lower(nickname)',
+    'SELECT id, competition_id, nickname, gender, grade, d_friendly FROM players WHERE competition_id = $1 ORDER BY lower(nickname)',
     [competitionId],
   )
 }

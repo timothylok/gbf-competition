@@ -3,16 +3,25 @@ import { Banner } from '@/components/Banner'
 import { requireAdmin } from '@/lib/auth'
 import { deleteCompetition, updateCompetition } from '@/lib/actions'
 import { getT } from '@/lib/i18n'
-import { getCompetition } from '@/lib/queries'
+import { getCompetition, getMatches } from '@/lib/queries'
+import { endTimeOf, maxRoundsFor, roundTime } from '@/lib/time'
 
 export default async function Overview({ params, searchParams }: { params: { id: string }; searchParams: { ok?: string; err?: string } }) {
   await requireAdmin()
   const { t } = getT()
   const c = await getCompetition(Number(params.id))
   if (!c) notFound()
+  const matches = await getMatches(c.id)
+  const rounds = matches.length ? Math.max(...matches.map((m) => m.round)) : 0
   return (
     <>
       <Banner ok={searchParams.ok} err={searchParams.err} />
+      <p className="card mb-4 text-sm font-semibold text-ink" data-testid="comp-times">
+        {t('compStarts')} {c.start_time} · {t('endTime')} {endTimeOf(c)}
+        {rounds > 0
+          ? ` · ${t('compEnds')} ${roundTime(c.start_time, c.slot_minutes, rounds + 1)} · ${rounds} ${t('planRounds')}${rounds > maxRoundsFor(c) ? ` · ⚠ ${t('afterEnd')}` : ''}`
+          : ` · ${t('compNoSchedule')}`}
+      </p>
       <form action={updateCompetition} className="card mb-8 grid gap-3 sm:grid-cols-2">
         <input type="hidden" name="id" value={c.id} />
         <div className="sm:col-span-2">
@@ -26,6 +35,10 @@ export default async function Overview({ params, searchParams }: { params: { id:
         <div>
           <label htmlFor="start_time" className="label">{t('startTime')}</label>
           <input id="start_time" name="start_time" type="time" className="input" required defaultValue={c.start_time} />
+        </div>
+        <div>
+          <label htmlFor="end_time" className="label">{t('endTime')}</label>
+          <input id="end_time" name="end_time" type="time" className="input" required defaultValue={endTimeOf(c)} />
         </div>
         <div>
           <label htmlFor="courts" className="label">{t('courts')}</label>

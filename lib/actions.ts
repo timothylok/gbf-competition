@@ -6,7 +6,9 @@ import { z } from 'zod'
 import { audit, query } from './db'
 import { attemptLogin, endSession, requireAdmin } from './auth'
 import { back, parsePlayerLines } from './action-utils'
+import { parseGrade } from './grade'
 import { generatePlan } from './scheduler'
+import { maxRoundsFor } from './time'
 import type { Key } from './i18n'
 
 const int = z.coerce.number().int()
@@ -19,7 +21,9 @@ const compSchema = z.object({
   start_time: time,
   courts: int.min(1).max(20),
   slot_minutes: int.min(5).max(60),
-})
+  /** Latest finish; blank = start time + 5 hours. */
+  end_time: z.union([z.literal(''), time]).optional(),
+}).refine((c) => !c.end_time || c.end_time > c.start_time)
 
 function fields(fd: FormData): Record<string, string> {
   const o: Record<string, string> = {}
@@ -80,8 +84,8 @@ export async function createCompetition(fd: FormData) {
   if (!r.success) back('/admin', 'err', 'invalid')
   const c = r.data
   const [row] = await query<{ id: number }>(
-    'INSERT INTO competitions (name, event_date, start_time, courts, slot_minutes) VALUES ($1,$2,$3,$4,$5) RETURNING id',
-    [c.name, c.event_date, c.start_time, c.courts, c.slot_minutes],
+    'INSERT INTO competitions (name, event_date, start_time, courts, slot_minutes, end_time) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id',
+    [c.name, c.event_date, c.start_time, c.courts, c.slot_minutes, c.end_time || null],
   )
   await audit(s.name, 'competition.create', `${c.name} (#${row.id})`)
   redirect(`/admin/c/${row.id}`)
@@ -92,12 +96,12 @@ export async function updateCompetition(fd: FormData) {
   const f = fields(fd)
   const id = int.parse(f.id)
   const path = `/admin/c/${id}`
-  const r = compSchema.extend({ status: z.enum(['draft', 'live', 'finished']) }).safeParse(f)
+  const r = compSchema.and(z.object({ status: z.enum(['draft', 'live', 'finished']) })).safeParse(f)
   if (!r.success) back(path, 'err', 'invalid')
   const c = r.data
   await query(
-    'UPDATE competitions SET name=$2, event_date=$3, start_time=$4, courts=$5, slot_minutes=$6, status=$7 WHERE id=$1',
-    [id, c.name, c.event_date, c.start_time, c.courts, c.slot_minutes, c.status],
+    'UPDATE competitions SET name=$2, event_date=$3, start_time=$4, courts=$5, slot_minutes=$6, status=$7, end_time=$8 WHERE id=$1',
+    [id, c.name, c.event_date, c.start_time, c.courts, c.slot_minutes, c.status, c.end_time || null],
   )
   await audit(s.name, 'competition.update', `#${id} status=${c.status}`)
   back(path, 'ok', 'saved')
@@ -150,14 +154,15 @@ export async function updatePlayer(fd: FormData) {
       id: int,
       nickname: z.string().trim().min(1).max(30),
       gender: z.enum(['M', 'F']),
-      grade: z.union([z.literal(''), int.min(1).max(9)]),
+      grade: z.string().trim().max(1).refine((g) => parseGrade(g) !== undefined),
+      d_friendly: z.string().optional(),
     })
     .safeParse(f)
   if (!r.success) back(path, 'err', 'invalid')
   const p = r.data
   try {
-    await query('UPDATE players SET nickname=$3, gender=$4, grade=$5 WHERE id=$1 AND competition_id=$2', [
-      p.id, comp, p.nickname, p.gender, p.grade === '' ? null : p.grade,
+    await query('UPDATE players SET nickname=$3, gender=$4, grade=$5, d_friendly=$6 WHERE id=$1 AND competition_id=$2', [
+      p.id, comp, p.nickname, p.gender, parseGrade(p.grade), p.d_friendly === 'on',
     ])
   } catch (e: any) {
     if (e?.code === '23505') back(path, 'err', 'duplicate')
@@ -191,27 +196,32 @@ export async function generateSchedule(fd: FormData) {
   const id = int.parse(f.id)
   const path = `/admin/c/${id}/schedule`
   const r = z
-    .object({ mdGames: int.min(0).max(10), xdGames: int.min(0).max(10), hours: z.coerce.number().min(0.5).max(24), seed: int.min(0).max(1_000_000) })
+    .object({ mdGames: int.min(0).max(10), xdGames: int.min(0).max(10), hdGames: int.min(0).max(10).optional(), hours: z.coerce.number().min(0.5).max(24), seed: int.min(0).max(1_000_000) })
     .safeParse(f)
   if (!r.success) back(path, 'err', 'invalid')
 
-  const comps = await query<{ courts: number; slot_minutes: number }>('SELECT courts, slot_minutes FROM competitions WHERE id=$1', [id])
+  const comps = await query<{ courts: number; slot_minutes: number; start_time: string; end_time: string | null }>(
+    'SELECT courts, slot_minutes, start_time, end_time FROM competitions WHERE id=$1',
+    [id],
+  )
   if (!comps[0]) back('/admin', 'err', 'notfound')
   const [started] = await query<{ n: number }>(
     "SELECT count(*)::int AS n FROM matches WHERE competition_id=$1 AND status <> 'scheduled'",
     [id],
   )
   if (started.n > 0) back(path, 'err', 'locked')
-  const players = await query<{ id: number; gender: 'M' | 'F'; grade: number | null }>(
-    'SELECT id, gender, grade FROM players WHERE competition_id=$1',
+  const rows = await query<{ id: number; gender: 'M' | 'F'; grade: number | null; d_friendly: boolean }>(
+    'SELECT id, gender, grade, d_friendly FROM players WHERE competition_id=$1',
     [id],
   )
+  const players = rows.map((p) => ({ id: p.id, gender: p.gender, grade: p.grade, dFriendly: p.d_friendly }))
   if (players.length < 4) back(path, 'err', 'players')
 
-  const plan = generatePlan(players, comps[0].courts, { mdGames: r.data.mdGames, xdGames: r.data.xdGames }, r.data.seed)
+  const plan = generatePlan(players, comps[0].courts, { mdGames: r.data.mdGames, xdGames: r.data.xdGames, hdGames: r.data.hdGames ?? 0 }, r.data.seed)
   if (plan.matches.length === 0) back(path, 'err', 'players')
   // Hard time limit: refuse a draw that would run past it.
-  const maxRounds = Math.floor((r.data.hours * 60) / comps[0].slot_minutes)
+  // Both limits apply: the hours typed in the form and the competition's end time.
+  const maxRounds = Math.min(Math.floor((r.data.hours * 60) / comps[0].slot_minutes), maxRoundsFor(comps[0]))
   if (plan.rounds > maxRounds) back(path, 'err', 'toolong')
 
   // One statement: delete the old draw and insert the new one atomically.
@@ -226,7 +236,7 @@ export async function generateSchedule(fd: FormData) {
      INSERT INTO matches (competition_id, event, round, court, a1, a2, b1, b2) VALUES ${values.join(',')}`,
     params,
   )
-  await audit(s.name, 'schedule.generate', `#${id}: ${plan.matches.length} matches, seed ${r.data.seed}, MD ${r.data.mdGames}/man, XD ${r.data.xdGames}/woman`)
+  await audit(s.name, 'schedule.generate', `#${id}: ${plan.matches.length} matches, seed ${r.data.seed}, MD ${r.data.mdGames}/man, XD ${r.data.xdGames}/woman (handicap ${r.data.hdGames ?? 0})`)
   back(path, 'ok', plan.warnings.length ? 'generated_warn' : 'generated')
 }
 
@@ -246,6 +256,15 @@ async function checkLineup(comp: number, ids: number[]) {
   return row.n === 4
 }
 
+/** Refuse a round that would end after the competition's end time. */
+async function roundFits(comp: number, round: number) {
+  const [c] = await query<{ slot_minutes: number; start_time: string; end_time: string | null }>(
+    'SELECT slot_minutes, start_time, end_time FROM competitions WHERE id=$1',
+    [comp],
+  )
+  return !!c && round <= maxRoundsFor(c)
+}
+
 export async function saveMatch(fd: FormData) {
   const s = await requireAdmin()
   const f = fields(fd)
@@ -255,6 +274,7 @@ export async function saveMatch(fd: FormData) {
   if (!r.success) back(path, 'err', 'invalid')
   const m = r.data
   if (!(await checkLineup(comp, [m.a1, m.a2, m.b1, m.b2]))) back(`${path}?m=${m.id}`, 'err', 'distinct')
+  if (!(await roundFits(comp, m.round))) back(`${path}?m=${m.id}`, 'err', 'toolate')
   const rows = await query(
     `UPDATE matches SET event=$3, round=$4, court=$5, a1=$6, a2=$7, b1=$8, b2=$9, version=version+1, updated_at=now()
      WHERE id=$1 AND competition_id=$2 AND status <> 'done' RETURNING id`,
@@ -274,6 +294,7 @@ export async function addMatch(fd: FormData) {
   if (!r.success) back(path, 'err', 'invalid')
   const m = r.data
   if (!(await checkLineup(comp, [m.a1, m.a2, m.b1, m.b2]))) back(path, 'err', 'distinct')
+  if (!(await roundFits(comp, m.round))) back(path, 'err', 'toolate')
   const [row] = await query<{ id: number }>(
     'INSERT INTO matches (competition_id, event, round, court, a1, a2, b1, b2) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
     [comp, m.event, m.round, m.court, m.a1, m.a2, m.b1, m.b2],

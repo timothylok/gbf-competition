@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { parseGrade } from './grade'
 
 /** Redirect back to a page with a one-shot banner code (?ok=... or ?err=...). */
 export function back(path: string, kind: 'ok' | 'err', code: string): never {
@@ -14,7 +15,7 @@ export interface ParsedPlayer {
 
 const GENDERS: Record<string, 'M' | 'F'> = { m: 'M', male: 'M', 男: 'M', f: 'F', female: 'F', 女: 'F' }
 
-/** Parse "nickname, M|F, grade?" lines. Invalid lines are skipped and counted. */
+/** Parse "nickname, M|F, grade?" (grade is a letter A-I, A = strongest) lines. Invalid lines are skipped and counted. */
 export function parsePlayerLines(text: string): { players: ParsedPlayer[]; skipped: number } {
   const players: ParsedPlayer[] = []
   const seen = new Set<string>()
@@ -25,10 +26,8 @@ export function parsePlayerLines(text: string): { players: ParsedPlayer[]; skipp
     const parts = line.split(/[,，\t;；]/).map((s) => s.trim())
     const nickname = (parts[0] ?? '').replace(/[\u0000-\u001f]/g, '').slice(0, 30)
     const gender = GENDERS[(parts[1] ?? '').toLowerCase()]
-    const gradeRaw = parts[2]
-    const grade = gradeRaw ? Number(gradeRaw) : null
-    const gradeOk = grade === null || (Number.isInteger(grade) && grade >= 1 && grade <= 9)
-    if (!nickname || !gender || !gradeOk || seen.has(nickname.toLowerCase())) {
+    const grade = parseGrade(parts[2])
+    if (!nickname || !gender || grade === undefined || seen.has(nickname.toLowerCase())) {
       skipped++
       continue
     }

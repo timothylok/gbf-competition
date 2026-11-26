@@ -7,17 +7,21 @@ export const SCHEMA_SQL = [
     start_time TEXT NOT NULL DEFAULT '09:00',
     courts INT NOT NULL DEFAULT 5,
     slot_minutes INT NOT NULL DEFAULT 15,
+    end_time TEXT,
     status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','live','finished')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   )`,
+  `ALTER TABLE competitions ADD COLUMN IF NOT EXISTS end_time TEXT`,
   `CREATE TABLE IF NOT EXISTS players (
     id SERIAL PRIMARY KEY,
     competition_id INT NOT NULL REFERENCES competitions(id) ON DELETE CASCADE,
     nickname TEXT NOT NULL,
     gender TEXT NOT NULL CHECK (gender IN ('M','F')),
     grade INT,
+    d_friendly BOOLEAN NOT NULL DEFAULT false,
     UNIQUE (competition_id, nickname)
   )`,
+  `ALTER TABLE players ADD COLUMN IF NOT EXISTS d_friendly BOOLEAN NOT NULL DEFAULT false`,
   `CREATE TABLE IF NOT EXISTS matches (
     id SERIAL PRIMARY KEY,
     competition_id INT NOT NULL REFERENCES competitions(id) ON DELETE CASCADE,

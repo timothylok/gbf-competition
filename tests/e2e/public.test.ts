@@ -57,7 +57,7 @@ describe('what a logged-out visitor sees', () => {
     assert.match(final, /Final/)
     assert.match(final, /\b15\b/)
     const mixed = cards(r.html).find((c) => xdLive.names.every((n) => c.includes(n)))!
-    assert.match(mixed, /Mixed doubles/)
+    assert.match(mixed, /Mixed doubles|Handicap doubles/) // half of the women's games are handicap (women vs men)
   })
 
   it('labels a level result as a draw', async () => {

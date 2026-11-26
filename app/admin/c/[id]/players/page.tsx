@@ -1,6 +1,7 @@
 import { Banner } from '@/components/Banner'
 import { requireAdmin } from '@/lib/auth'
 import { addPlayers, deletePlayer, updatePlayer } from '@/lib/actions'
+import { gradeToLetter } from '@/lib/grade'
 import { getT } from '@/lib/i18n'
 import { getPlayers } from '@/lib/queries'
 
@@ -18,7 +19,7 @@ export default async function PlayersPage({ params, searchParams }: { params: { 
         <input type="hidden" name="id" value={id} />
         <label htmlFor="text" className="label">{t('bulkAdd')}</label>
         <p className="mb-2 text-xs text-ink/75">{t('bulkHelp')}</p>
-        <textarea id="text" name="text" rows={6} className="input mb-3 font-mono text-sm" required placeholder={'Kevin, M, 2\nMei, F'} />
+        <textarea id="text" name="text" rows={6} className="input mb-3 font-mono text-sm" required placeholder={'Kevin, M, B\nMei, F'} />
         <button className="btn-accent">{t('addPlayers')}</button>
       </form>
 
@@ -37,7 +38,10 @@ export default async function PlayersPage({ params, searchParams }: { params: { 
                 <option value="M">{t('male')}</option>
                 <option value="F">{t('female')}</option>
               </select>
-              <input name="grade" type="number" min={1} max={9} aria-label={t('grade')} placeholder={t('grade')} defaultValue={p.grade ?? ''} className="input !w-20" />
+              <input name="grade" maxLength={1} pattern="[A-Ia-i]?" aria-label={t('grade')} placeholder={t('grade')} defaultValue={gradeToLetter(p.grade)} className="input !w-20 uppercase" />
+              <label className="flex items-center gap-1 text-xs text-ink">
+                <input type="checkbox" name="d_friendly" defaultChecked={p.d_friendly} className="h-8 w-8" /> {t('partnerD')}
+              </label>
               <button className="btn-ghost">{t('save')}</button>
               <button formAction={deletePlayer} className="btn-ghost text-berry" formNoValidate>{t('delete')}</button>
             </form>

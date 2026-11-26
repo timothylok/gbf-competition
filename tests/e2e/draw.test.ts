@@ -42,7 +42,7 @@ describe('draw generation (44 men, 20 women: men\'s doubles first, mixed second,
     await go(page, `/admin/c/${comp}/schedule`)
     const text = await page.evaluate(() => document.body.innerText)
     assert.match(text, /64 players \(44 men, 20 women\)/)
-    assert.match(text, /84 matches \(Men's doubles 44, Mixed doubles 40\)/)
+    assert.match(text, /84 matches \(Men's doubles 44, Mixed doubles 20, Handicap doubles 20\)/)
     assert.match(text, /17 rounds/)
     assert.match(text, /estimated finish 13:15/)
     assert.match(text, /fits the time limit/)

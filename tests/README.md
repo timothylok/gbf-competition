@@ -16,7 +16,7 @@ Needs Chrome or Chromium installed (set `CHROME_PATH` if it is not in a standard
 | `scheduler.test.ts` | Draw rules: men's doubles first, mixed second, 10 player splits, no clashes or repeats, 5-hour window, reproducible seeds, grade balance |
 | `standings.test.ts` | Win 2 / draw 1 / loss 0, tiebreaks, shared ranks, per-event tables, round times |
 | `lock.test.ts` | The single-admin lock on a real in-memory Postgres: blocking, release, idle expiry, password change, simultaneous logins |
-| `players-parse.test.ts` | Pasting a player list: genders (including 男/女), grades, duplicates, bad lines, control characters |
+| `players-parse.test.ts` | Pasting a player list: genders (including 男/女), grades (letters A-I or digits), duplicates, bad lines, control characters |
 | `i18n.test.ts` | English and Hong Kong Chinese have the same keys and placeholders, real translations, Hong Kong wording |
 | `colors.test.ts` | Pantone-only palette (no other colour classes or hex values) and WCAG AA contrast for every text/background pair, including over the glass colour fields |
 
