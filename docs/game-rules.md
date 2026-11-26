@@ -33,6 +33,28 @@ Rules for GBF casual competitions as the app runs them. Items marked **To confir
 - The draw is built to give as many players as possible their full games, then to use as few "one grade apart", handicap and filler matches as it can.
 - Organisers can edit any match (players, court, round), add matches by hand, or regenerate the draw until play starts. A hand-made or edited match shows an amber warning if the players are more than one grade apart, if it breaks the team rule, or if the match type does not fit.
 
+## Pairing rules (per competition)
+
+Each competition has a **Pairing rules** box on its Overview tab. The rules are stored with that competition (never in the code), one per line; `#` starts a note.
+
+```
+# these two groups never partner each other
+avoid: grade:D & team:F | grade:B & team:F
+avoid: grade:D & team:F | Alex, Sam
+avoid: Kim, Lee | grade:B & team:F
+# these two play mixed doubles together at least once
+pair: Kim + Jo
+```
+
+- **`avoid: <who> | <who>`**: no one in the first group is ever the partner (same side of the net) of anyone in the second. Opponents are not restricted.
+- **`pair: <name> + <name>`**: the two partner at least once, in mixed doubles, so they must be one man and one woman of the same team.
+- **`<who>`** is a comma-separated list; a player matches if any item matches. An item is a nickname (a trailing `-F` or `-RW` is ignored, or write the exact nickname), `grade:B`, or `team:F` (nicknames ending `-F`) / `team:R` (everyone else). Join items with `&` when all must match, for example `grade:D & team:F`.
+- A nickname that matches more than one player (for example `Alex` and `Alex-F`) is refused: write the exact nickname, or add `& team:F`. A nickname that matches nobody is only a warning.
+- **Rules win over games.** The draw never breaks a rule; if the rules make a player's 6th game impossible, that player gets fewer games, and a required pair that cannot be made is reported. Rules are applied together with the grade rule (all four players within one grade), so `avoid: grade:D | grade:B` is already covered.
+- Bad lines are saved but shown under the box with their line numbers, and the draw is refused until they are fixed.
+- A hand-made or edited match with a forbidden pair on one side shows an amber **Breaks a pairing rule** warning. The Schedule tab lists the rules and ticks each required pair that is in the saved schedule.
+- "Happy to partner D grade" stays a tick box on the Players tab (a preference, not a rule). Tick it again after pasting a player list, because the paste does not carry it.
+
 ## Warm-up, time limit and end time
 
 - **No match is played in the first 15 minutes.** From the start time (for example 09:00 to 09:15) every court is for warm-up, and round 1 starts after it. The schedule shows the warm-up for all courts.

@@ -13,6 +13,8 @@ export interface Competition {
   slot_minutes: number
   /** Latest finish time (HH:MM). Null = start time + 5 hours. */
   end_time: string | null
+  /** Pairing rules, one per line (see lib/pairing-rules.ts). Null = none. */
+  pairing_rules: string | null
   status: 'draft' | 'live' | 'finished'
 }
 export interface Player {

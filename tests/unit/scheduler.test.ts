@@ -191,7 +191,8 @@ describe('teams and hand-made line-ups', () => {
     assert.equal(teamOf('Alex'), 'R')
     assert.equal(teamOf('Self'), 'R', 'an F in the name is not the suffix')
   })
-  const P = (gender: 'M' | 'F', grade: number, team: 'F' | 'R'): LineupPlayer => ({ gender, grade, team })
+  let nextId = 1
+  const P = (gender: 'M' | 'F', grade: number, team: 'F' | 'R'): LineupPlayer => ({ id: nextId++, gender, grade, team })
   const setup = teamSetup([{ team: 'F' }, { team: 'F' }, { team: 'F' }, { team: 'R' }, { team: 'R' }])
   it('finds the team with spare games', () => {
     assert.deepEqual(setup, { active: true, spare: 'F' })

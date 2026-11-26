@@ -3,7 +3,8 @@ import { Banner } from '@/components/Banner'
 import { requireAdmin } from '@/lib/auth'
 import { deleteCompetition, updateCompetition } from '@/lib/actions'
 import { getT } from '@/lib/i18n'
-import { getCompetition, getMatches } from '@/lib/queries'
+import { getCompetition, getMatches, getPlayers } from '@/lib/queries'
+import { compileRules, parseRules } from '@/lib/pairing-rules'
 import { endTimeOf, maxRoundsFor, roundTime } from '@/lib/time'
 
 export default async function Overview({ params, searchParams }: { params: { id: string }; searchParams: { ok?: string; err?: string } }) {
@@ -11,7 +12,10 @@ export default async function Overview({ params, searchParams }: { params: { id:
   const { t } = getT()
   const c = await getCompetition(Number(params.id))
   if (!c) notFound()
-  const matches = await getMatches(c.id)
+  const [matches, players] = await Promise.all([getMatches(c.id), getPlayers(c.id)])
+  const parsedRules = parseRules(c.pairing_rules)
+  const compiled = compileRules(parsedRules, players)
+  const errors = [...parsedRules.errors, ...compiled.problems]
   const rounds = matches.length ? Math.max(...matches.map((m) => m.round)) : 0
   return (
     <>
@@ -55,6 +59,23 @@ export default async function Overview({ params, searchParams }: { params: { id:
             <option value="live">{t('statusLive')}</option>
             <option value="finished">{t('statusFinished')}</option>
           </select>
+        </div>
+        <div className="sm:col-span-2">
+          <label htmlFor="pairing_rules" className="label">{t('pairingRules')}</label>
+          <p className="mb-1 text-xs text-ink/75">{t('pairingRulesHelp')}</p>
+          <textarea id="pairing_rules" name="pairing_rules" rows={7} maxLength={4000} spellCheck={false} className="input font-mono text-sm" defaultValue={c.pairing_rules ?? ''} />
+          {errors.length > 0 && (
+            <div className="mt-2 rounded-lg border-2 border-berry bg-paper/60 px-3 py-2 text-sm text-ink" role="alert" data-testid="rule-problems">
+              <p className="font-semibold">{t('ruleProblems')}</p>
+              <ul className="list-disc pl-5">{errors.map((e, i) => <li key={`e${i}`}>{t('ruleLine')} {e.line}: {e.message}</li>)}</ul>
+            </div>
+          )}
+          {errors.length === 0 && compiled.warnings.length > 0 && (
+            <div className="mt-2 rounded-lg border border-sun bg-paper/60 px-3 py-2 text-sm text-ink" data-testid="rule-warnings">
+              <p className="font-semibold">{t('ruleWarnings')}</p>
+              <ul className="list-disc pl-5">{compiled.warnings.map((e, i) => <li key={`w${i}`}>{t('ruleLine')} {e.line}: {e.message}</li>)}</ul>
+            </div>
+          )}
         </div>
         <div className="flex items-end"><button className="btn-accent">{t('save')}</button></div>
       </form>

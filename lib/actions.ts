@@ -8,6 +8,7 @@ import { attemptLogin, endSession, requireAdmin } from './auth'
 import { back, parsePlayerLines } from './action-utils'
 import { parseGrade } from './grade'
 import { generatePlan } from './scheduler'
+import { compileRules, parseRules } from './pairing-rules'
 import { teamOf } from './team'
 import { maxRoundsFor, roundsIn } from './time'
 import type { Key } from './i18n'
@@ -24,6 +25,8 @@ const compSchema = z.object({
   slot_minutes: int.min(5).max(60),
   /** Latest finish; blank = start time + 5 hours. */
   end_time: z.union([z.literal(''), time]).optional(),
+  /** Pairing rules, one per line. Saved as typed; problems are shown on the Overview tab and block generating. */
+  pairing_rules: z.string().max(4000).optional(),
 }).refine((c) => !c.end_time || c.end_time > c.start_time)
 
 function fields(fd: FormData): Record<string, string> {
@@ -101,8 +104,8 @@ export async function updateCompetition(fd: FormData) {
   if (!r.success) back(path, 'err', 'invalid')
   const c = r.data
   await query(
-    'UPDATE competitions SET name=$2, event_date=$3, start_time=$4, courts=$5, slot_minutes=$6, status=$7, end_time=$8 WHERE id=$1',
-    [id, c.name, c.event_date, c.start_time, c.courts, c.slot_minutes, c.status, c.end_time || null],
+    'UPDATE competitions SET name=$2, event_date=$3, start_time=$4, courts=$5, slot_minutes=$6, status=$7, end_time=$8, pairing_rules=$9 WHERE id=$1',
+    [id, c.name, c.event_date, c.start_time, c.courts, c.slot_minutes, c.status, c.end_time || null, (c.pairing_rules ?? '').trim() || null],
   )
   await audit(s.name, 'competition.update', `#${id} status=${c.status}`)
   back(path, 'ok', 'saved')
@@ -201,8 +204,8 @@ export async function generateSchedule(fd: FormData) {
     .safeParse(f)
   if (!r.success) back(path, 'err', 'invalid')
 
-  const comps = await query<{ courts: number; slot_minutes: number; start_time: string; end_time: string | null }>(
-    'SELECT courts, slot_minutes, start_time, end_time FROM competitions WHERE id=$1',
+  const comps = await query<{ courts: number; slot_minutes: number; start_time: string; end_time: string | null; pairing_rules: string | null }>(
+    'SELECT courts, slot_minutes, start_time, end_time, pairing_rules FROM competitions WHERE id=$1',
     [id],
   )
   if (!comps[0]) back('/admin', 'err', 'notfound')
@@ -221,7 +224,11 @@ export async function generateSchedule(fd: FormData) {
   // The draw stops at the last round that fits: both the hours typed in the form and the competition's end time apply.
   const maxRounds = Math.min(roundsIn(r.data.hours * 60, comps[0].slot_minutes), maxRoundsFor(comps[0]))
   if (maxRounds < 1) back(path, 'err', 'toolong')
-  const plan = generatePlan(players, comps[0].courts, { maxGames: r.data.maxGames, maxRounds }, r.data.seed)
+  // Pairing rules: syntax errors and ambiguous names stop the draw, so nobody gets a schedule that ignores a rule.
+  const parsedRules = parseRules(comps[0].pairing_rules)
+  const compiledRules = compileRules(parsedRules, rows.map((p) => ({ id: p.id, nickname: p.nickname, gender: p.gender, grade: p.grade })))
+  if (parsedRules.errors.length || compiledRules.problems.length) back(path, 'err', 'badrules')
+  const plan = generatePlan(players, comps[0].courts, { maxGames: r.data.maxGames, maxRounds }, r.data.seed, { forbidden: compiledRules.forbidden, required: compiledRules.required })
   if (plan.matches.length === 0) back(path, 'err', 'players')
 
   // One statement: delete the old draw and insert the new one atomically.
@@ -239,9 +246,9 @@ export async function generateSchedule(fd: FormData) {
   await audit(
     s.name,
     'schedule.generate',
-    `#${id}: ${plan.matches.length} matches in ${plan.rounds} rounds, seed ${r.data.seed}, max ${r.data.maxGames} games (handicap ${plan.hdCount}, filler ${plan.fillerCount}, under cap ${plan.underCap.length})`,
+    `#${id}: ${plan.matches.length} matches in ${plan.rounds} rounds, seed ${r.data.seed}, max ${r.data.maxGames} games (handicap ${plan.hdCount}, filler ${plan.fillerCount}, under cap ${plan.underCap.length}, rules: ${compiledRules.forbidden.size} avoid pairs, ${compiledRules.required.length - plan.unmetPairs.length}/${compiledRules.required.length} required pairs met)`,
   )
-  back(path, 'ok', plan.warnings.length ? 'generated_warn' : 'generated')
+  back(path, 'ok', plan.warnings.length || plan.unmetPairs.length ? 'generated_warn' : 'generated')
 }
 
 const matchSchema = z.object({

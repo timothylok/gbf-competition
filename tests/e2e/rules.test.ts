@@ -407,4 +407,89 @@ describe(`game rules: Philippines vs the rest, grades, handicap (${N} players, $
     assert(made.length > tight.length, 'a later end time allows more matches')
     assert(Math.max(...made.map((r) => r.round)) <= 11, 'no round ends after 12:00 (11 rounds after the warm-up)')
   })
+  it('pairing rules: saved per competition, bad lines are reported, the draw obeys them, hand-made matches are warned', async () => {
+    const c = await createCompetition(page, 'Pairing Rules Test')
+    await addPlayers(page, c, lines.join('\n'))
+    const saveRules = async (text: string) => {
+      await go(page, `/admin/c/${c}`)
+      await submit(page, [['id', String(c)], ['courts', null]], { pairing_rules: text }, 'Save')
+    }
+
+    // bad lines are saved but reported with their line numbers, and generating is refused
+    await saveRules('avoid: PW01-F\nnonsense here')
+    assert.match((await banner(page)) ?? '', /Saved/)
+    await go(page, `/admin/c/${c}`)
+    const problems = await page.$eval('[data-testid=rule-problems]', (e) => e.textContent ?? '')
+    assert.match(problems, /line 1: Write avoid: <who> \| <who>/)
+    assert.match(problems, /line 2: A rule starts with "avoid:" or "pair:"/)
+    await generate(page, c, { hours: HOURS, seed: 5 })
+    assert.match((await banner(page)) ?? '', /pairing rules have problems/)
+    assert.match(await page.evaluate(() => document.body.innerText), /No matches yet/)
+
+    // a name that matches nobody is only a warning
+    await saveRules('avoid: Nobody-Here | grade:B & team:F')
+    await go(page, `/admin/c/${c}`)
+    assert.match(await page.$eval('[data-testid=rule-warnings]', (e) => e.textContent ?? ''), /No player matches "Nobody-Here"/)
+
+    // real rules, written with made-up names like the real ones
+    const RULES = [
+      '# the Philippines D woman does not partner Philippines B players',
+      'avoid: grade:D & team:F | grade:B & team:F',
+      'avoid: grade:D & team:F | PM04, PM05',
+      'avoid: PW03, PM06 | grade:B & team:F',
+      'pair: PW05 + PM01',
+    ].join('\n')
+    await saveRules(RULES)
+    await go(page, `/admin/c/${c}`)
+    assert.equal(await page.$eval('#pairing_rules', (e) => (e as HTMLTextAreaElement).value), RULES, 'rules are saved as typed')
+    assert.equal(await page.$('[data-testid=rule-problems]'), null)
+    await generate(page, c, { hours: HOURS, seed: 5 })
+    const made = await readSchedule(page, c)
+    assert(made.length >= 66 && made.length <= 69, `${made.length} matches`)
+
+    const grade = (n: string) => p(n).grade
+    const philippines = (n: string) => p(n).team === 'F'
+    const isB = (n: string) => philippines(n) && grade(n) === 2
+    const isD = (n: string) => philippines(n) && grade(n) === 4
+    const named = (n: string, ...list: string[]) => list.includes(n.replace(/-F$/, ''))
+    for (const m of made) {
+      for (const [x, y] of [[m.names[0], m.names[1]], [m.names[2], m.names[3]]]) {
+        const bad =
+          (isD(x) && isB(y)) || (isB(x) && isD(y)) ||
+          (isD(x) && named(y, 'PM04', 'PM05')) || (isD(y) && named(x, 'PM04', 'PM05')) ||
+          (named(x, 'PW03', 'PM06') && isB(y)) || (named(y, 'PW03', 'PM06') && isB(x))
+        assert(!bad, `round ${m.round}: ${x} and ${y} partner each other, against a rule`)
+      }
+    }
+    const together = made.filter((m) => [[m.names[0], m.names[1]], [m.names[2], m.names[3]]].some(([x, y]) => [x, y].sort().join() === ['PM01-F', 'PW05-F'].sort().join()))
+    assert(together.length >= 1, 'PW05 and PM01 partner at least once')
+    assert(together.every((m) => m.kind === 'Mixed doubles'), 'a man and a woman partnering play mixed doubles')
+    assert.equal(made.reduce((n, r) => n + r.warnings.length, 0), 0, 'a draw that follows the rules has no warnings')
+    const games = gamesOf(made)
+    assert([...games.values()].filter((g) => g >= 5).length >= N - 2 && Math.max(...games.values()) <= CAP, 'nearly everyone still has their games')
+
+    // the Schedule tab shows the rules and whether the required pair is scheduled, from the saved matches
+    await go(page, `/admin/c/${c}/schedule`)
+    const status = await page.$eval('[data-testid=rules-status]', (e) => e.textContent ?? '')
+    assert.match(status, /Pairing rules: \d+ avoid rules covering pairs/)
+    assert.match(status, /✓ PW05-F - \(C\) \+ PM01-F - \(B\)/)
+
+    // a hand-made match that breaks a rule gets an amber warning (PW03 partnering a B player)
+    await go(page, `/admin/c/${c}/schedule`)
+    await page.evaluate((lineup) => {
+      const f = [...document.forms].find((x) => x.querySelector('[name=comp]') && !x.querySelector('[name=id]') && x.querySelector('[name=a1]')) as HTMLFormElement
+      for (const [field, nick] of Object.entries(lineup)) {
+        const sel = f.querySelector(`[name=${field}]`) as HTMLSelectElement
+        sel.value = [...sel.options].find((o) => o.text.startsWith(nick + ' '))!.value
+      }
+      ;(f.querySelector('[name=event]') as HTMLSelectElement).value = 'XD'
+      ;(f.querySelector('[name=round]') as HTMLInputElement).value = '18'
+      ;(f.querySelector('[name=court]') as HTMLInputElement).value = '1'
+      f.requestSubmit()
+    }, { a1: 'PW03-F', a2: 'PM01-F', b1: 'RM05', b2: 'RW01' })
+    await page.waitForNavigation({ waitUntil: 'networkidle0' })
+    assert.match((await banner(page)) ?? '', /Created/)
+    const hand = (await readSchedule(page, c)).find((r) => r.round === 18)!
+    assert(hand.warnings.some((w) => /Breaks a pairing rule/.test(w)), `rule warning, got ${JSON.stringify(hand.warnings)}`)
+  })
 })

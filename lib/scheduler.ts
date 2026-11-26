@@ -37,6 +37,13 @@ export interface Targets {
   /** Last round that fits the time limit. */
   maxRounds: number
 }
+/** Pairing rules for this roster, as player ids (see lib/pairing-rules.ts). */
+export interface SchedRules {
+  /** Partners who must never be on the same side: "idA-idB" with the smaller id first. */
+  forbidden: Set<string>
+  /** One man + one woman of the same team who must partner at least once. */
+  required: [number, number][]
+}
 export interface Plan {
   matches: PlannedMatch[]
   rounds: number
@@ -55,6 +62,8 @@ export interface Plan {
   gamesPerPlayer: Map<number, number>
   /** Players with fewer games than the maximum. */
   underCap: number[]
+  /** Required pairs the draw could not schedule. */
+  unmetPairs: [number, number][]
   warnings: string[]
 }
 
@@ -116,7 +125,7 @@ interface RoundState {
 
 const KIND_ORDER = { MD: 0, XD: 1, WD: 2, HD: 3 } as const
 
-function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, seed: number): Plan & { rank: number[] } {
+function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, seed: number, rules?: SchedRules): Plan & { rank: number[] } {
   const rand = rng(seed)
   const n = players.length
   const cap = targets.maxGames
@@ -130,6 +139,24 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
   const partnerHist = new Map<number, number>()
   const oppHist = new Map<number, number>()
   const rounds: RoundState[] = []
+
+  // Pairing rules by player index: partners who must never be on one side, and pairs who must partner at least once.
+  const idxOf = new Map(P.map((p, i) => [p.id, i]))
+  const forbiddenIdx = new Set<number>()
+  rules?.forbidden.forEach((k) => {
+    const [a, b] = k.split('-').map(Number)
+    const i = idxOf.get(a)
+    const j = idxOf.get(b)
+    if (i !== undefined && j !== undefined) forbiddenIdx.add(key(i, j))
+  })
+  const bad = (i: number, j: number) => forbiddenIdx.has(key(i, j))
+  const required: [number, number][] = []
+  for (const [a, b] of rules?.required ?? []) {
+    const i = idxOf.get(a)
+    const j = idxOf.get(b)
+    if (i !== undefined && j !== undefined) required.push([i, j])
+  }
+  const met = required.map(() => false)
 
   const isW = (i: number) => P[i].gender === 'F'
   const grade = (i: number) => P[i].grade
@@ -146,7 +173,7 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
   }
 
   /** Best legal match containing `anchor` among the free players, or null. */
-  function findBest(anchor: number, free: number[], mode: Mode, r: number): Cand | null {
+  function findBest(anchor: number, free: number[], mode: Mode, r: number, forced?: number): Cand | null {
     const at = P[anchor].team
     if (mode === 'filler' && at !== spareTeam) return null
     const partners: number[] = []
@@ -174,7 +201,10 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
             .sort((u, v) => u.k - v.k)
             .slice(0, POOL_LIMIT)
             .map((x) => x.i)
-    const partnerPool = trim(partners)
+    // Forbidden partners are removed before trimming, so the trimmed pool is never full of illegal choices.
+    let allowed = partners.filter((j) => !bad(anchor, j))
+    if (forced !== undefined) allowed = allowed.filter((j) => j === forced)
+    const partnerPool = forced !== undefined ? allowed : trim(allowed)
     const oppPool = trim(opps)
     let best: Cand | null = null
     for (const p of partnerPool) {
@@ -185,7 +215,7 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
         if (x === p || !near(p, x)) continue
         for (let yi = xi + 1; yi < oppPool.length; yi++) {
           const y = oppPool[yi]
-          if (y === p || !near(p, y) || !near(x, y)) continue
+          if (y === p || !near(p, y) || !near(x, y) || bad(x, y)) continue
           if (!gradeSpreadOk([...gs, grade(x), grade(y)])) continue
           const wa = (isW(anchor) ? 1 : 0) + (isW(p) ? 1 : 0)
           const wb = (isW(x) ? 1 : 0) + (isW(y) ? 1 : 0)
@@ -230,6 +260,37 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
     return best
   }
 
+  /** Record a chosen match in its round. */
+  function place(rs: RoundState, found: Cand) {
+    rs.matches.push(found)
+    for (const i of [...found.a, ...found.b]) {
+      rs.used.add(i)
+      games[i]++
+    }
+    partnerHist.set(key(found.a[0], found.a[1]), (partnerHist.get(key(found.a[0], found.a[1])) ?? 0) + 1)
+    partnerHist.set(key(found.b[0], found.b[1]), (partnerHist.get(key(found.b[0], found.b[1])) ?? 0) + 1)
+    for (const u of found.a) for (const v of found.b) oppHist.set(key(u, v), (oppHist.get(key(u, v)) ?? 0) + 1)
+  }
+
+  /** Give the pairs that must partner their match in round r, if both are free. Returns how many were placed. */
+  function placeRequired(r: number): number {
+    const rs = rounds[r - 1]
+    let placed = 0
+    required.forEach(([a, b], k) => {
+      if (met[k] || rs.matches.length >= courts) return
+      if (rs.used.has(a) || rs.used.has(b) || games[a] >= cap || games[b] >= cap) return
+      const free: number[] = []
+      for (let i = 0; i < n; i++) if (!rs.used.has(i) && games[i] < cap) free.push(i)
+      const c = findBest(a, free, 'cross', r, b)
+      if (c) {
+        place(rs, c)
+        met[k] = true
+        placed++
+      }
+    })
+    return placed
+  }
+
   /** Put as many matches as possible into round r. Returns how many were added. */
   function fillRound(r: number, mode: Mode): number {
     const rs = rounds[r - 1]
@@ -258,14 +319,7 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
         failed.add(i)
       }
       if (!found) break
-      rs.matches.push(found)
-      for (const i of [...found.a, ...found.b]) {
-        rs.used.add(i)
-        games[i]++
-      }
-      partnerHist.set(key(found.a[0], found.a[1]), (partnerHist.get(key(found.a[0], found.a[1])) ?? 0) + 1)
-      partnerHist.set(key(found.b[0], found.b[1]), (partnerHist.get(key(found.b[0], found.b[1])) ?? 0) + 1)
-      for (const u of found.a) for (const v of found.b) oppHist.set(key(u, v), (oppHist.get(key(u, v)) ?? 0) + 1)
+      place(rs, found)
       placed++
     }
     return placed
@@ -277,17 +331,21 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
   // Phase 1: cross-team matches, round by round.
   while (rounds.length < maxRounds) {
     addRound()
-    if (fillRound(rounds.length, 'cross') === 0) {
+    const req = placeRequired(rounds.length)
+    if (fillRound(rounds.length, 'cross') + req === 0) {
       rounds.pop()
       break
     }
   }
   // Phase 2: top up earlier rounds that have free courts, then filler matches for the larger team, then extra rounds.
-  for (let r = 1; r <= rounds.length; r++) fillRound(r, 'cross')
+  for (let r = 1; r <= rounds.length; r++) {
+    placeRequired(r)
+    fillRound(r, 'cross')
+  }
   if (spareTeam) for (let r = 1; r <= rounds.length; r++) fillRound(r, 'filler')
   while (rounds.length < maxRounds && games.some((g) => g < cap)) {
     addRound()
-    const placed = fillRound(rounds.length, 'cross') + (spareTeam ? fillRound(rounds.length, 'filler') : 0)
+    const placed = placeRequired(rounds.length) + fillRound(rounds.length, 'cross') + (spareTeam ? fillRound(rounds.length, 'filler') : 0)
     if (placed === 0) {
       rounds.pop()
       break
@@ -326,20 +384,24 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
     closeCount: counts.close,
     gamesPerPlayer: new Map(P.map((p, i) => [p.id, games[i]])),
     underCap,
+    unmetPairs: required.filter((_, k) => !met[k]).map(([a, b]) => [P[a].id, P[b].id] as [number, number]),
     warnings,
     // Lower is better, compared left to right: players short of the cap, then fewest games, then total games.
-    rank: [underCap.length, cap - Math.min(...games), -total, counts.HD + counts.filler, counts.close, repeats, rounds.length],
+    rank: [met.filter((m) => !m).length, underCap.length, cap - Math.min(...games), -total, counts.HD + counts.filler, counts.close, repeats, rounds.length],
   }
 }
 
 const ATTEMPTS = 14
 const POOL_LIMIT = 14
 
-/** Build a draw. Tries several seeds and keeps the one that gives the most players their full games. */
-export function generatePlan(players: SchedPlayer[], courts: number, targets: Targets, seed: number): Plan {
+/**
+ * Build a draw. Tries several seeds and keeps the best: first the one that meets every required pair, then the one that
+ * gives the most players their full games. Pairing rules are never broken; a player may get fewer games instead.
+ */
+export function generatePlan(players: SchedPlayer[], courts: number, targets: Targets, seed: number, rules?: SchedRules): Plan {
   let best: (Plan & { rank: number[] }) | null = null
   for (let i = 0; i < ATTEMPTS; i++) {
-    const p = generateOnce(players, courts, targets, seed * 101 + i)
+    const p = generateOnce(players, courts, targets, seed * 101 + i, rules)
     if (!best) best = p
     else {
       for (let k = 0; k < p.rank.length; k++) {

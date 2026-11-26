@@ -5,6 +5,7 @@ import { requireAdmin } from '@/lib/auth'
 import { gradeToLetter, withGrade } from '@/lib/grade'
 import { headStartOf, matchKind } from '@/lib/handicap'
 import { lineupIssues, teamSetup, type LineupPlayer } from '@/lib/lineup'
+import { compileRules, parseRules } from '@/lib/pairing-rules'
 import { addMatch, deleteMatch, generateSchedule, saveMatch } from '@/lib/actions'
 import { getT, type T } from '@/lib/i18n'
 import { getCompetition, getMatches, getPlayers } from '@/lib/queries'
@@ -65,6 +66,7 @@ export default async function SchedulePage({ params, searchParams }: { params: {
   const women = players.length - men
   const withTeam = players.map((p) => ({ ...p, team: teamOf(p.nickname) }))
   const setup = teamSetup(withTeam)
+  const compiled = compileRules(parseRules(comp.pairing_rules), players)
   const nF = withTeam.filter((p) => p.team === 'F').length
   const maxRounds = maxRoundsFor(comp)
   const plan = estimatePlan(withTeam, DEFAULT_MAX_GAMES, comp.courts)
@@ -72,7 +74,7 @@ export default async function SchedulePage({ params, searchParams }: { params: {
   const info = Object.fromEntries(players.map((p) => [p.id, { gender: p.gender, grade: p.grade }]))
   const lp = (i: number): LineupPlayer | null => {
     const p = byId.get(i)
-    return p ? { gender: p.gender, grade: p.grade, team: teamOf(p.nickname) } : null
+    return p ? { id: p.id, gender: p.gender, grade: p.grade, team: teamOf(p.nickname) } : null
   }
 
   const warn = (m: Match): string[] => {
@@ -83,16 +85,20 @@ export default async function SchedulePage({ params, searchParams }: { params: {
     if (same.some((o) => o.court === m.court || ids.some((i) => [o.a1, o.a2, o.b1, o.b2].includes(i)))) out.push(t('clash'))
     const [a1, a2, b1, b2] = ids.map(lp)
     if (a1 && a2 && b1 && b2) {
-      const issues = lineupIssues(m.event, [a1, a2], [b1, b2], setup)
+      const issues = lineupIssues(m.event, [a1, a2], [b1, b2], setup, compiled.forbidden)
       if (issues.includes('mismatch')) out.push(t('mismatch'))
       if (issues.includes('grades')) out.push(t('gradesApart'))
       if (issues.includes('team')) out.push(t('teamIssue'))
+      if (issues.includes('rule')) out.push(t('ruleBroken'))
     }
     return out
   }
 
   const editing = searchParams.m ? matches.find((m) => m.id === Number(searchParams.m)) : undefined
   const rounds = [...new Set(matches.map((m) => m.round))].sort((a, b) => a - b)
+  // Required pairs: shown from the saved matches, so a hand edit is reflected.
+  const partnered = (a: number, b: number) =>
+    matches.some((m) => m.status !== 'cancelled' && [[m.a1, m.a2], [m.b1, m.b2]].some(([x, y]) => (x === a && y === b) || (x === b && y === a)))
   const nm = (i: number) => {
     const p = byId.get(i)
     return p ? withGrade(p.nickname, p.grade) : '?'
@@ -144,6 +150,14 @@ export default async function SchedulePage({ params, searchParams }: { params: {
       )}
 
       <p className="mb-4 rounded-lg border border-mist bg-paper/60 px-4 py-2 text-sm font-semibold text-ink" data-testid="warmup">{t('warmup')} {warmupRange(comp.start_time)} · {t('allCourts')}</p>
+      {(compiled.forbidden.size > 0 || compiled.required.length > 0) && (
+        <p className="mb-4 text-sm text-ink" data-testid="rules-status">
+          <span className="font-semibold">{t('rulesStatus')}:</span> {compiled.forbidden.size} {t('rulesAvoid')}
+          {compiled.required.map(([a, b]) => (
+            <span key={`${a}-${b}`}> · {rounds.length > 0 ? (partnered(a, b) ? '✓' : '✗') : ''} {nm(a)} + {nm(b)} ({t('rulesMust')})</span>
+          ))}
+        </p>
+      )}
       {rounds.length === 0 && <p className="mb-6 text-sm text-ink/75">{t('noMatches')}</p>}
       {rounds.length > 0 && (
         <p className="mb-3 text-sm font-semibold text-ink">

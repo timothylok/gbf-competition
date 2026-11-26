@@ -8,10 +8,12 @@ export const SCHEMA_SQL = [
     courts INT NOT NULL DEFAULT 5,
     slot_minutes INT NOT NULL DEFAULT 15,
     end_time TEXT,
+    pairing_rules TEXT,
     status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','live','finished')),
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
   )`,
   `ALTER TABLE competitions ADD COLUMN IF NOT EXISTS end_time TEXT`,
+  `ALTER TABLE competitions ADD COLUMN IF NOT EXISTS pairing_rules TEXT`,
   `CREATE TABLE IF NOT EXISTS players (
     id SERIAL PRIMARY KEY,
     competition_id INT NOT NULL REFERENCES competitions(id) ON DELETE CASCADE,

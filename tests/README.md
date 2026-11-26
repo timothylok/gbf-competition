@@ -14,6 +14,7 @@ Needs Chrome or Chromium installed (set `CHROME_PATH` if it is not in a standard
 | File | Covers |
 |---|---|
 | `scheduler.test.ts` | Draw rules: Philippines (-F) vs the rest, same type and grade (within one), handicap fallback, filler for the larger team, at most 6 games, no clashes, time-limit stop, reproducible seeds, hand-made line-up warnings |
+| `pairing-rules.test.ts` | The rules box: parsing and error lines, names and groups, ambiguous names, required pairs, the draw obeying rules, hand-made warnings |
 | `handicap.test.ts` | Head start rules (4 / 6 / half), women's doubles and handicap kinds |
 | `time.test.ts` | Round start/end times, the end time and the rounds that fit before it |
 | `standings.test.ts` | Win 2 / draw 1 / loss 0, tiebreaks, shared ranks, per-event tables, round times |
@@ -33,7 +34,7 @@ random secrets) and stops it afterwards, so the login lockout and single-admin l
 | `security.test.ts` | Security headers, admin redirects, forged / unsigned tokens, noindex, 404s, no source or secrets served |
 | `admin-paths.test.ts` | Players, matches (edit, clash and line-up warnings, add, delete), scores (final, live, reset, cancel, stale edits, finished-match lock), competitions (status, validation, delete confirmation), audit log |
 | `draw.test.ts` | 64 players, no teams: plan preview, at most 6 games, grades within one, a tight time limit gives fewer games, regenerate rules |
-| `rules.test.ts` | Philippines vs the rest roster: teams, filler, same type and grade, head start, partner flag, end time, late-round refusal, hand-made warnings, Copy text, print page and print button |
+| `rules.test.ts` | Philippines vs the rest roster: teams, filler, same type and grade, head start, partner flag, end time, late-round refusal, hand-made warnings, pairing rules, Copy text, print page and print button |
 | `public.test.ts` | What a logged-out visitor sees: drafts hidden, live board, finals and draws, standings and shared ranks, player pages, schedule filter, Hong Kong Chinese, XSS escaping |
 | `single-admin.test.ts` | Only one admin at a time (two browsers), no leak of who is signed in |
 | `idle-expiry.test.ts` | The lock frees itself after inactivity (3 seconds in this test) |

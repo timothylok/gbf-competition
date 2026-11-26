@@ -70,7 +70,9 @@ Full rules are in `docs/game-rules.md`. In short:
    when entering the score.
 3. **At most 6 games per player** (the "Most games per player" field, 15 minutes each). The draw gives everyone as close to
    the maximum as the rules allow, within the time limit (the end time and the "Time limit (hours)" field).
-4. In each round men's doubles use the lower court numbers. No player is in two matches in a round, partners and opponents
+4. **Pairing rules** (Overview tab, per competition) say who never partners whom and which pairs must partner once; the draw never
+   breaks them (see `docs/game-rules.md`).
+5. In each round men's doubles use the lower court numbers. No player is in two matches in a round, partners and opponents
    are not repeated if it can be avoided, and players who just sat out are preferred. Players ticked **Happy to partner D grade**
    are preferred as partners for D grades.
 
