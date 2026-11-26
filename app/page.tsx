@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { AutoRefresh } from '@/components/AutoRefresh'
 import { CompTabs } from '@/components/CompTabs'
+import { TeamImage } from '@/components/TeamImage'
 import { MatchCard } from '@/components/MatchCard'
 import { getT } from '@/lib/i18n'
 import { loadPublic } from '@/lib/public'
@@ -9,7 +10,7 @@ export default async function LivePage({ searchParams }: { searchParams: { c?: s
   const { t } = getT()
   const data = await loadPublic(searchParams.c)
   if (!data) return <p className="card text-ink/75">{t('noEvent')}</p>
-  const { comp, matches, names, info } = data
+  const { comp, players, matches, names, info } = data
 
   const live = matches.filter((m) => m.status === 'live')
   const scheduled = matches.filter((m) => m.status === 'scheduled')
@@ -37,8 +38,9 @@ export default async function LivePage({ searchParams }: { searchParams: { c?: s
     <>
       {comp.status === 'live' && <AutoRefresh />}
       <CompTabs comp={comp} active="live" />
-      <p className="mb-5">
+      <p className="mb-5 flex flex-wrap gap-2">
         <a href={`/schedule/pdf?c=${comp.id}`} className="btn-ghost" data-testid="print-link">{t('printSchedule')}</a>
+        <TeamImage comp={comp} players={players} t={t} />
       </p>
       <Section title={t('nowPlaying')} empty={t('nothingLive')} items={live} />
       <Section title={t('upNext')} empty={t('nothingNext')} items={next} />

@@ -14,6 +14,8 @@ Needs Chrome or Chromium installed (set `CHROME_PATH` if it is not in a standard
 | File | Covers |
 |---|---|
 | `scheduler.test.ts` | Draw rules: Philippines (-F) vs the rest, same type and grade (within one), handicap fallback, filler for the larger team, at most 6 games, no clashes, time-limit stop, reproducible seeds, hand-made line-up warnings |
+| `nz-time.test.ts` | The New Zealand print timestamp (NZDT/NZST, midnight rollover, both languages) |
+| `team-lists.test.ts` | Team lists by team, grade and sex: counts, sorting, suffixes dropped, everyone once |
 | `schedule-pdf.test.ts` | The schedule PDF: fonts cover the Chinese strings, one page per court, long courts flow, by-time, every event colour, Chinese labels, unusual characters never fail, small and fast |
 | `pairing-rules.test.ts` | The rules box: parsing and error lines, names and groups, ambiguous names, required pairs, the draw obeying rules, hand-made warnings |
 | `handicap.test.ts` | Head start rules (4 / 6 / half), women's doubles and handicap kinds |

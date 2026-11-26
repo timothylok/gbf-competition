@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { AutoRefresh } from '@/components/AutoRefresh'
 import { CompTabs } from '@/components/CompTabs'
+import { TeamImage } from '@/components/TeamImage'
 import { MatchCard } from '@/components/MatchCard'
 import Link from 'next/link'
 import { withGrade } from '@/lib/grade'
@@ -35,8 +36,9 @@ export default async function SchedulePage({ searchParams }: { searchParams: { c
         </div>
         <button className="btn-primary" type="submit">{t('filter')}</button>
       </form>
-      <p className="mb-5">
+      <p className="mb-5 flex flex-wrap gap-2">
         <a href={`/schedule/pdf?c=${comp.id}`} className="btn-ghost" data-testid="print-link">{t('printSchedule')}</a>
+        <TeamImage comp={comp} players={players} t={t} />
       </p>
       <p className="mb-4 rounded-lg border border-mist bg-paper/60 px-4 py-2 text-sm font-semibold text-ink" data-testid="warmup">{t('warmup')} {warmupRange(comp.start_time)} · {t('allCourts')}</p>
       {rounds.length === 0 && <p className="text-sm text-ink/75">{t('noMatches')}</p>}

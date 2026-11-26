@@ -55,6 +55,8 @@ export interface PdfInput {
   by: 'court' | 'time'
   t: T
   year: number
+  /** e.g. "Printed 27 Nov 2026, 14:05 NZDT (New Zealand time)", shown in the footer of every page. */
+  printedAt?: string
 }
 
 /** Every character the PDF can draw: all the text from the schedule and the labels, plus plain ASCII. */
@@ -62,7 +64,7 @@ function textToDraw(input: PdfInput): string {
   const { comp, groups, t } = input
   const keys = ['MD', 'XD', 'WD', 'HD', 'courtsShort', 'planMatches', 'warmup', 'allCourts', 'pdfGrades', 'pdfCont', 'event', 'sideA', 'sideB', 'textTime', 'court', 'footerRights', 'footerClause', 'footerCredit', 'noMatches'] as const
   const ascii = String.fromCharCode(...Array.from({ length: 95 }, (_, k) => 32 + k)) // plain ASCII, always available
-  const parts: string[] = [comp.name, comp.event_date, ...keys.map((k) => t(k)), ascii, '·–…©']
+  const parts: string[] = [comp.name, comp.event_date, ...keys.map((k) => t(k)), input.printedAt ?? '', ascii, '·–…©']
   for (const g of groups) {
     parts.push(g.title)
     for (const r of g.rows) parts.push(r.when, r.courtLabel, r.kind, r.note, r.sideA, r.sideB, ...(r.a ?? []).flatMap((p) => [p.name, p.grade]), ...(r.b ?? []).flatMap((p) => [p.name, p.grade]))
@@ -249,7 +251,7 @@ class Writer {
   }
 
   footers() {
-    const { t, year } = this.input
+    const { t, year, printedAt } = this.input
     const n = this.pages.length
     this.pages.forEach((page, i) => {
       this.page = page
@@ -257,7 +259,7 @@ class Writer {
       this.line(M, top + 4, W - M, MIST, 0.6)
       this.text(`© ${year} ${t('footerRights')}`, M, top, 7.2, { bold: true, color: STONE, maxWidth: CW })
       this.text(t('footerClause'), M, top - 10, 6.8, { color: STONE, maxWidth: CW })
-      this.text(t('footerCredit'), M, top - 20, 6.8, { color: STONE, maxWidth: CW - 60 })
+      this.text(printedAt ? `${t('footerCredit')} · ${printedAt}` : t('footerCredit'), M, top - 20, 6.8, { color: STONE, maxWidth: CW - 60 })
       this.text(`${i + 1} / ${n}`, W - M, top - 20, 6.8, { color: STONE, align: 'right' })
     })
   }

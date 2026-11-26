@@ -51,6 +51,14 @@ describe('buildSchedulePdf', () => {
     assert.equal(pdf.getAuthor(), 'Grand Badminton Family')
   })
 
+  it('prints the New Zealand print time in the footer without breaking anything', async () => {
+    const printedAt = 'Printed 27 Nov 2026, 14:05 NZDT (New Zealand time)'
+    const bytes = await buildSchedulePdf({ comp, groups: [court(1, 5)], by: 'court', t: en, year: 2026, printedAt })
+    assert.equal((await PDFDocument.load(bytes)).getPageCount(), 1)
+    const zhBytes = await buildSchedulePdf({ comp, groups: [court(1, 5)], by: 'court', t: zh, year: 2026, printedAt: '列印時間： 27 Nov 2026, 14:05 NZDT (紐西蘭時間)' })
+    assert(zhBytes.length < 200_000)
+  })
+
   it('flows a long court onto more pages instead of running off the bottom', async () => {
     const bytes = await buildSchedulePdf({ comp, groups: [court(1, 60)], by: 'court', t: en, year: 2026 })
     assert((await PDFDocument.load(bytes)).getPageCount() >= 3, '60 rows need several pages')

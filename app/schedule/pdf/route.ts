@@ -1,4 +1,5 @@
 import { getT } from '@/lib/i18n'
+import { printedLine } from '@/lib/nz-time'
 import { loadPublic } from '@/lib/public'
 import { scheduleGroups } from '@/lib/schedule-groups'
 import { buildSchedulePdf } from '@/lib/schedule-pdf'
@@ -18,7 +19,7 @@ export async function GET(req: Request) {
   const { t } = getT()
   const { comp, players, matches } = data
   const groups = scheduleGroups(comp, players, matches, by, t)
-  const bytes = await buildSchedulePdf({ comp, groups, by, t, year: new Date().getFullYear() })
+  const bytes = await buildSchedulePdf({ comp, groups, by, t, year: new Date().getFullYear(), printedAt: printedLine(t) })
 
   const ascii = `GBF-schedule-${comp.event_date}.pdf`
   const full = encodeURIComponent(`${comp.name} ${comp.event_date} - Schedule.pdf`)

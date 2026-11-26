@@ -381,6 +381,52 @@ describe(`game rules: Philippines vs the rest, grades, handicap (${N} players, $
     assert.match(await page.$eval('a[href^="/schedule/pdf"]', (a) => a.getAttribute('href') ?? ''), new RegExp(`^/schedule/pdf\\?c=${comp}&by=court$`))
   })
 
+  it('the Print team list (image) button sits next to Print schedule and saves a PNG with the New Zealand print time; a draft is not public', async () => {
+    for (const path of [`/?c=${comp}`, `/schedule?c=${comp}`]) {
+      await go(page, path)
+      const order = await page.$$eval('[data-testid=print-link], [data-testid=teams-link]', (els) => els.map((e) => e.getAttribute('data-testid')))
+      assert.deepEqual(order, ['print-link', 'teams-link'], `both buttons together on ${path}`)
+      const same = await page.$eval('[data-testid=teams-link]', (e) => e.parentElement === document.querySelector('[data-testid=print-link]')!.parentElement)
+      assert(same, 'in the same row as Print schedule')
+    }
+
+    await go(page, `/?c=${comp}`)
+    // the drawing itself: 1600 px wide, a real PNG, with both teams on it
+    const info = await page.evaluate(async () => {
+      const btn = document.querySelector('[data-testid=teams-link]') as HTMLButtonElement
+      let saved: Blob | null = null // the page's CSP blocks fetch() of blob: URLs, so keep the Blob itself
+      const orig = URL.createObjectURL
+      URL.createObjectURL = (o: Blob | MediaSource) => { saved = o as Blob; return orig(o) }
+      HTMLAnchorElement.prototype.click = function () { (window as unknown as { __dl: { name: string; href: string } }).__dl = { name: this.download, href: this.href } }
+      btn.click()
+      for (let i = 0; i < 50 && !(window as unknown as { __dl?: unknown }).__dl; i++) await new Promise((r) => setTimeout(r, 100))
+      const dl = (window as unknown as { __dl?: { name: string; href: string } }).__dl
+      if (!dl) return null
+      const blob = saved as Blob | null
+      if (!blob) return null
+      const head = new Uint8Array(await blob.slice(0, 24).arrayBuffer())
+      const all = new Uint8Array(await blob.arrayBuffer())
+      let bin = ''
+      for (let i = 0; i < all.length; i += 8192) bin += String.fromCharCode(...all.subarray(i, i + 8192))
+      const b64 = btoa(bin)
+      return { name: dl.name, type: blob.type, size: blob.size, head: [...head], b64 }
+    })
+    assert(info, 'clicking the button saves a file')
+    assert.match(info.name, /^GBF-teams-\d{4}-\d\d-\d\d\.png$/)
+    assert.equal(info.type, 'image/png')
+    assert.equal(String.fromCharCode(...info.head.slice(1, 4)), 'PNG')
+    const dv = new DataView(new Uint8Array(info.head).buffer)
+    assert.equal(dv.getUint32(16), 1600, 'width')
+    assert(dv.getUint32(20) > 700 && dv.getUint32(20) < 3000, `height ${dv.getUint32(20)}`)
+    assert(info.size > 20_000, `${info.size} bytes`)
+    if (process.env.E2E_DUMP_TEAMS) writeFileSync(process.env.E2E_DUMP_TEAMS, Buffer.from(info.b64, 'base64'))
+
+    // a draft competition's pages (and so its button) are for admins only
+    await setStatus(page, comp, 'draft')
+    assert.doesNotMatch((await fetchHtml(`/?c=${comp}`)).html, /data-testid="teams-link"/, 'logged out, a draft shows nothing')
+    await setStatus(page, comp, 'finished')
+  })
+
   it('the public Live page has a Print schedule (PDF) button whatever the competition status; a draft PDF is for admins only', async () => {
     for (const status of ['live', 'finished', 'draft'] as const) {
       await setStatus(page, comp, status)
