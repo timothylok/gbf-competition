@@ -117,6 +117,24 @@ describe('draw generation (44 men, 20 women, no teams: 5 courts, 5-hour limit, a
     rows = again
   })
 
+  it('asks before replacing the draw: Cancel keeps it, OK replaces it', async () => {
+    const before = JSON.stringify(await readSchedule(page, comp))
+    await go(page, `/admin/c/${comp}/schedule`)
+    const seen: string[] = []
+    const cancel = (d: { message(): string; dismiss(): Promise<void> }) => { seen.push(d.message()); void d.dismiss() }
+    page.on('dialog', cancel)
+    await page.evaluate(() => { (document.querySelector('input[name=seed]') as HTMLInputElement).value = '77' })
+    await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Generate schedule')!.click())
+    await new Promise((r) => setTimeout(r, 800))
+    page.off('dialog', cancel)
+    assert.equal(seen.length, 1, 'one confirmation')
+    assert.match(seen[0], /replaces the current schedule \(\d+ matches\)/)
+    assert.equal(JSON.stringify(await readSchedule(page, comp)), before, 'Cancel leaves the draw untouched')
+    await generate(page, comp, { seed: 77 }) // generate() accepts the dialog
+    assert.notEqual(JSON.stringify(await readSchedule(page, comp)), before, 'OK replaces it')
+    rows = await readSchedule(page, comp)
+  })
+
   it('refuses to regenerate once a match has been scored', async () => {
     const first = (await listMatches(page, comp))[0]
     await setScore(page, comp, first.id, 'live', '1', '0')

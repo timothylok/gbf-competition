@@ -34,9 +34,8 @@ describe('translations (English + Traditional Chinese for Hong Kong)', () => {
     assert.equal(en.courtsShort, 'courts')
     assert.notEqual(zh.courtsShort, zh.courts)
   })
-  it('mentions the single-admin rule with who and minutes', () => {
-    for (const d of [en, zh]) {
-      assert(d.errBusy.includes('{who}') && d.errBusy.includes('{mins}'))
-    }
+  it('explains to a signed-out admin that someone else signed in, or they were idle', () => {
+    assert.match(en.signedOutNotice, /another admin signed in/)
+    assert(zh.signedOutNotice.length > 10 && zh.signedOutNotice !== en.signedOutNotice)
   })
 })

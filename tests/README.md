@@ -19,7 +19,7 @@ Needs Chrome or Chromium installed (set `CHROME_PATH` if it is not in a standard
 | `handicap.test.ts` | Head start rules (4 / 6 / half), women's doubles and handicap kinds |
 | `time.test.ts` | Round start/end times, the end time and the rounds that fit before it |
 | `standings.test.ts` | Win 2 / draw 1 / loss 0, tiebreaks, shared ranks, per-event tables, round times |
-| `lock.test.ts` | The single-admin lock on a real in-memory Postgres: blocking, release, idle expiry, password change, simultaneous logins |
+| `lock.test.ts` | The single-admin lock on a real in-memory Postgres: takeover by the newest sign-in, release, idle sign-out, password change, simultaneous logins |
 | `players-parse.test.ts` | Pasting a player list: genders (including 男/女), grades (letters A-I or digits), duplicates, bad lines, control characters |
 | `i18n.test.ts` | English and Hong Kong Chinese have the same keys and placeholders, real translations, Hong Kong wording |
 | `colors.test.ts` | Pantone-only palette (no other colour classes or hex values) and WCAG AA contrast for every text/background pair, including over the glass colour fields |
@@ -37,7 +37,7 @@ random secrets) and stops it afterwards, so the login lockout and single-admin l
 | `draw.test.ts` | 64 players, no teams: plan preview, at most 6 games, grades within one, a tight time limit gives fewer games, regenerate rules |
 | `rules.test.ts` | Philippines vs the rest roster: teams, filler, same type and grade, head start, partner flag, end time, late-round refusal, hand-made warnings, pairing rules, Copy text, the PDF route and the Print (PDF) button |
 | `public.test.ts` | What a logged-out visitor sees: drafts hidden, live board, finals and draws, standings and shared ranks, player pages, schedule filter, Hong Kong Chinese, XSS escaping |
-| `single-admin.test.ts` | Only one admin at a time (two browsers), no leak of who is signed in |
+| `single-admin.test.ts` | A new sign-in signs the previous admin out (two browsers); a wrong password takes nothing over |
 | `idle-expiry.test.ts` | The lock frees itself after inactivity (3 seconds in this test) |
 | `hash-login.test.ts` | Signing in with `ADMIN_PASSWORD_HASH_B64`; the plain password must fail |
 | `lockout.test.ts` | Five wrong passwords lock the sign-in, even for the correct password; public pages stay up |

@@ -6,6 +6,7 @@ import { gradeToLetter, withGrade } from '@/lib/grade'
 import { headStartOf, matchKind } from '@/lib/handicap'
 import { lineupIssues, teamSetup, type LineupPlayer } from '@/lib/lineup'
 import { compileRules, parseRules } from '@/lib/pairing-rules'
+import { ConfirmButton } from '@/components/ConfirmButton'
 import { addMatch, deleteMatch, generateSchedule, saveMatch } from '@/lib/actions'
 import { getT, type T } from '@/lib/i18n'
 import { getCompetition, getMatches, getPlayers } from '@/lib/queries'
@@ -133,7 +134,7 @@ export default async function SchedulePage({ params, searchParams }: { params: {
           </div>
         </div>
         <p className="mb-3 mt-1 text-xs text-ink/75">{t('seedHelp')}</p>
-        <button className="btn-accent">{t('generate')}</button>
+        <ConfirmButton className="btn-accent" message={matches.length > 0 ? t('confirmRegenerate').replace('{n}', String(matches.length)) : undefined}>{t('generate')}</ConfirmButton>
       </form>
 
       {editing && (

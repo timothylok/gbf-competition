@@ -112,7 +112,13 @@ export async function addPlayers(page: Page, comp: number, text: string) {
 
 export async function generate(page: Page, comp: number, opts: { maxGames?: number; hours?: number; seed?: number; serverOnly?: boolean } = {}) {
   await go(page, `/admin/c/${comp}/schedule`)
-  await submit(page, [['maxGames', null]], { maxGames: String(opts.maxGames ?? 6), hours: String(opts.hours ?? 5), seed: String(opts.seed ?? 1) }, 'Generate schedule', { serverOnly: opts.serverOnly })
+  const accept = (d: { accept(): Promise<void> }) => void d.accept() // replacing an existing draw asks first
+  page.on('dialog', accept)
+  try {
+    await submit(page, [['maxGames', null]], { maxGames: String(opts.maxGames ?? 6), hours: String(opts.hours ?? 5), seed: String(opts.seed ?? 1) }, 'Generate schedule', { serverOnly: opts.serverOnly })
+  } finally {
+    page.off('dialog', accept)
+  }
 }
 
 export async function setStatus(page: Page, comp: number, status: 'draft' | 'live' | 'finished') {

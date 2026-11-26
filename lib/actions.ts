@@ -41,18 +41,17 @@ function fields(fd: FormData): Record<string, string> {
 // ---------- session ----------
 
 export async function login(
-  _prev: { error?: Key; who?: string; mins?: number } | undefined,
+  _prev: { error?: Key } | undefined,
   fd: FormData,
-): Promise<{ error?: Key; who?: string; mins?: number }> {
+): Promise<{ error?: Key }> {
   const name = String(fd.get('name') ?? '').replace(/[\u0000-\u001f]/g, '').trim().slice(0, 40)
   const password = String(fd.get('password') ?? '').slice(0, 200)
   if (!name) return { error: 'errName' }
   const result = await attemptLogin(name, password)
   if (result.status === 'invalid') return { error: 'errInvalid' }
   if (result.status === 'locked') return { error: 'errLocked' }
-  if (result.status === 'config') return { error: 'errConfig' }
-  if (result.status === 'busy') return { error: 'errBusy', who: result.who, mins: result.mins }
-  await audit(name, 'login')
+  if (result.status !== 'ok') return { error: 'errConfig' }
+  await audit(name, 'login', result.tookOverFrom ? `signed out ${result.tookOverFrom}` : '')
   redirect('/admin')
 }
 

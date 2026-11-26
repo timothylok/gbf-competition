@@ -26,9 +26,7 @@ export function LoginForm({ labels }: { labels: Record<string, string> }) {
       </div>
       {state?.error && (
         <p role="alert" className="rounded-lg border-l-4 border-berry bg-berry/10 px-3 py-2 text-sm font-medium text-ink">
-          {labels[state.error]
-            .replace('{who}', state.who ?? '')
-            .replace('{mins}', String(state.mins ?? ''))}
+          {labels[state.error]}
         </p>
       )}
       <Submit label={labels.login} />

@@ -2,21 +2,19 @@
 // Table admin_lock holds at most one row: who is signed in, and when they were last active.
 
 /**
- * Take the lock. Succeeds (returns a row) only if nobody holds it, the holder has been idle
- * longer than the limit, or the password has changed since the holder signed in.
- * $1 sid, $2 name, $3 password fingerprint, $4 idle minutes. Atomic: two simultaneous logins cannot both win.
+ * Take the lock. The newest sign-in always wins: whoever held it is signed out (their session id no longer matches,
+ * so their next click sends them to the login page). Atomic: of several simultaneous logins exactly one holds it afterwards.
+ * $1 sid, $2 name, $3 password fingerprint.
  */
 export const ACQUIRE_SQL = `
   INSERT INTO admin_lock (id, sid, name, pv, last_seen) VALUES (1, $1, $2, $3, now())
   ON CONFLICT (id) DO UPDATE
     SET sid = EXCLUDED.sid, name = EXCLUDED.name, pv = EXCLUDED.pv, last_seen = now()
-    WHERE admin_lock.last_seen < now() - ($4 || ' minutes')::interval OR admin_lock.pv <> EXCLUDED.pv
   RETURNING sid`
 
-/** Who holds it, and about how many minutes until it frees up. $1 idle minutes. */
+/** Who is signed in right now (not idle), so a takeover can be recorded. $1 idle minutes. */
 export const HOLDER_SQL = `
-  SELECT name, GREATEST(1, ceil(extract(epoch FROM (last_seen + ($1 || ' minutes')::interval - now())) / 60))::int AS mins
-  FROM admin_lock WHERE id = 1`
+  SELECT name FROM admin_lock WHERE id = 1 AND last_seen > now() - ($1 || ' minutes')::interval`
 
 /**
  * Validate the caller still holds the lock and count the request as activity

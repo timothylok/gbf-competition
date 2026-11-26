@@ -118,11 +118,10 @@ characters it uses. If you add Chinese text to `lib/i18n.ts`, a unit test tells 
 
 - Admin pages and **every** admin server action re-check the session; middleware is only a first gate.
 - Session: signed JWT in an `httpOnly`, `Secure`, `SameSite=Strict` cookie, 12-hour expiry.
-- **One admin at a time.** A single database lock holds the signed-in admin. A second person who enters the right
-  password is refused and told who is signed in. The lock frees when the admin signs out, after 20 minutes without
-  activity (set `ADMIN_IDLE_MINUTES` to change), or when the password is changed. If the lock changes hands, the
-  old session stops working on its next click. The password is checked first, so the holder's name is not revealed
-  to anyone who doesn't know it.
+- **One admin at a time, newest sign-in wins.** A single database lock holds the signed-in admin. When someone signs in with
+  the right password, whoever was signed in is signed out: their next click sends them to the login page with a notice, and
+  the audit log records who was signed out. A session also ends after 20 minutes without activity (set `ADMIN_IDLE_MINUTES`
+  to change), on sign-out, or when the password is changed. Only the password check lets anyone take over, and it is rate limited.
 - Login rate limit: 5 failures per IP and 40 total per 15 minutes, tracked in the database.
 - Password comparison is constant-time; all input is validated with Zod; all SQL is parameterised.
 - Security headers (CSP, HSTS, frame-ancestors none, nosniff) are set in `next.config.mjs`.

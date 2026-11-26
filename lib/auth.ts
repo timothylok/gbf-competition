@@ -75,7 +75,8 @@ export const getSession = cache(async (): Promise<Session | null> => {
 /** Call at the top of every admin page and every admin server action. */
 export async function requireAdmin(): Promise<Session> {
   const s = await getSession()
-  if (!s) redirect('/admin/login')
+  // A cookie that no longer works means someone else signed in (or this session went idle): say so on the login page.
+  if (!s) redirect(cookies().get(SESSION_COOKIE) ? '/admin/login?out=1' : '/admin/login')
   return s
 }
 
@@ -84,9 +85,7 @@ export function clientIp(): string {
   return (h.get('x-forwarded-for')?.split(',')[0] ?? h.get('x-real-ip') ?? 'unknown').trim().slice(0, 64)
 }
 
-export type LoginResult =
-  | { status: 'ok' | 'invalid' | 'locked' | 'config' }
-  | { status: 'busy'; who: string; mins: number }
+export type LoginResult = { status: 'ok'; tookOverFrom?: string } | { status: 'invalid' | 'locked' | 'config' }
 
 export async function attemptLogin(name: string, password: string): Promise<LoginResult> {
   const cred = credential()
@@ -108,15 +107,11 @@ export async function attemptLogin(name: string, password: string): Promise<Logi
   await query(`DELETE FROM login_attempts WHERE at < now() - interval '2 days'`)
   if (!ok) return { status: 'invalid' }
 
-  // Password is right. Now try to take the single-admin lock (after the password check, so
-  // nobody can learn who is signed in without knowing it).
+  // Password is right. Take the single-admin lock: this sign-in replaces whoever was signed in, who is signed out.
   const sid = randomUUID()
   const pv = fingerprint(cred)
-  const got = await query(ACQUIRE_SQL, [sid, name, pv, String(IDLE_MINUTES)])
-  if (got.length === 0) {
-    const [holder] = await query<{ name: string; mins: number }>(HOLDER_SQL, [String(IDLE_MINUTES)])
-    return { status: 'busy', who: holder?.name ?? '?', mins: holder?.mins ?? IDLE_MINUTES }
-  }
+  const [previous] = await query<{ name: string }>(HOLDER_SQL, [String(IDLE_MINUTES)])
+  await query(ACQUIRE_SQL, [sid, name, pv])
 
   const token = await new SignJWT({ name, sid, pv })
     .setProtectedHeader({ alg: 'HS256' })
@@ -130,7 +125,7 @@ export async function attemptLogin(name: string, password: string): Promise<Logi
     path: '/',
     maxAge: SESSION_HOURS * 3600,
   })
-  return { status: 'ok' }
+  return { status: 'ok', tookOverFrom: previous?.name }
 }
 
 /** Sign out: free the lock so the next admin can sign in straight away. */
