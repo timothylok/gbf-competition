@@ -7,6 +7,7 @@ import { audit, query } from './db'
 import { attemptLogin, endSession, requireAdmin } from './auth'
 import { back, parsePlayerLines } from './action-utils'
 import { parseGrade } from './grade'
+import { isForeignKeyViolation, isUniqueViolation } from './db-errors'
 import { generatePlan } from './scheduler'
 import { compileRules, parseRules } from './pairing-rules'
 import { teamOf } from './team'
@@ -169,7 +170,7 @@ export async function updatePlayer(fd: FormData) {
       p.id, comp, p.nickname, p.gender, parseGrade(p.grade), p.d_friendly === 'on',
     ])
   } catch (e: any) {
-    if (e?.code === '23505') back(path, 'err', 'duplicate')
+    if (isUniqueViolation(e)) back(path, 'err', 'duplicate')
     throw e
   }
   await audit(s.name, 'player.update', `#${p.id} ${p.nickname}`)
@@ -182,10 +183,13 @@ export async function deletePlayer(fd: FormData) {
   const comp = int.parse(f.comp)
   const id = int.parse(f.id)
   const path = `/admin/c/${comp}/players`
+  // A player in a match cannot be deleted. Check first, so the friendly message never depends on how the driver reports the error.
+  const [used] = await query<{ n: number }>('SELECT count(*)::int AS n FROM matches WHERE competition_id=$1 AND $2 IN (a1, a2, b1, b2)', [comp, id])
+  if (used.n > 0) back(path, 'err', 'inuse')
   try {
     await query('DELETE FROM players WHERE id=$1 AND competition_id=$2', [id, comp])
-  } catch (e: any) {
-    if (e?.code === '23503') back(path, 'err', 'inuse')
+  } catch (e: unknown) {
+    if (isForeignKeyViolation(e)) back(path, 'err', 'inuse')
     throw e
   }
   await audit(s.name, 'player.delete', `#${id}`)
