@@ -92,13 +92,14 @@ export function MatchCard({ m, names, info, comp }: { m: Match; names: Names; in
   )
 }
 
-/** Colour key shown under the tabs: blue = men's doubles, pink = mixed doubles, coral = handicap (women vs men). */
+/** Colour key shown under the tabs: blue = men's doubles, pink = mixed doubles, lilac = women's doubles, coral = handicap (women vs men). */
 export function EventLegend() {
   const { t } = getT()
   return (
     <p className="mb-5 flex flex-wrap items-center gap-2 text-xs text-ink">
       <span className={`chip ${TONE.MD.chip}`}>{t('MD')}</span>
       <span className={`chip ${TONE.XD.chip}`}>{t('XD')}</span>
+      <span className={`chip ${TONE.WD.chip}`}>{t('WD')}</span>
       <span className={`chip ${TONE.HD.chip}`}>{t('HD')}</span>
     </p>
   )

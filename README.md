@@ -48,8 +48,8 @@ otherwise the next person waits until the 20-minute inactivity limit passes.
 1. **Admin → New competition** (date, start time, courts, minutes per match). It starts as *Draft*, which is hidden from the public.
 2. **Players tab:** paste one per line as `nickname, M or F, optional grade` (grade A = strongest, then B, C, D). Use nicknames, since they are shown publicly.
 3. **Schedule tab:** check the plan preview, then **Generate**. Change the draw number for a different draw.
-   Set the games per man (men's doubles), games per woman (mixed doubles) and the time limit in hours; a draw that
-   would run past the limit is refused.
+   Set the most games per player (default 6) and the time limit in hours. The draw stops at the competition end time, so a
+   short day gives some players fewer games instead of a late finish.
    Edit any match (players, court, round), add matches by hand, or regenerate until play starts.
    Amber badges warn about a clash (same player or court twice in a round) or a line-up that doesn't fit the event.
 4. On the **Overview** tab set status to **Live** to publish it.
@@ -59,27 +59,31 @@ otherwise the next person waits until the 20-minute inactivity limit passes.
 
 ### How the draw works
 
-Men's doubles come first, mixed doubles second:
+Full rules are in `docs/game-rules.md`. In short:
 
-1. Every man plays the set number of **men's doubles** games (default 4).
-2. Every woman plays the set number of **mixed doubles** games (default 4). Women only play mixed. By default half of them (2) are **handicap** games: two women against two men, with a head start for the women (4 points at the same grade, 6 when one grade lower; half for one woman plus one man). The head start is shown on the match; the scorekeeper includes it when entering the score. See `docs/game-rules.md`.
-3. Men fill the other two places in each mixed match as **extra games**, with no cap. The scheduler always picks the men
-   with the fewest games, so extras are spread evenly (typically within 2 games of each other).
-4. In each round men's doubles are placed first (lower court numbers), then mixed.
-5. No player is in two matches in a round, partners are not repeated if it can be avoided, and players who just sat out
-   are preferred for the next round. Optional grades (A = strongest) are used to keep sides balanced. A B-grade player is never partnered with a D-grade player, and players ticked **Happy to partner D grade** are preferred as partners for D grades.
+1. **Teams.** Nicknames ending in `-F` are the Philippines team; every match is Philippines against the rest (two players
+   from one team on each side). The larger team plays a few same-team filler matches so its players can reach the maximum too.
+   With no `-F` nicknames there are no teams and anyone can play anyone.
+2. **Same type, same grade.** Both sides are the same type (men's, women's or mixed doubles) and all four players are within
+   one grade of each other (same grade preferred). When types cannot match, two women may play two men with a head start
+   (handicap: 4 points at the same grade, 6 when one grade lower), which is shown on the match; the scorekeeper includes it
+   when entering the score.
+3. **At most 6 games per player** (the "Most games per player" field, 15 minutes each). The draw gives everyone as close to
+   the maximum as the rules allow, within the time limit (the end time and the "Time limit (hours)" field).
+4. In each round men's doubles use the lower court numbers. No player is in two matches in a round, partners and opponents
+   are not repeated if it can be avoided, and players who just sat out are preferred. Players ticked **Happy to partner D grade**
+   are preferred as partners for D grades.
 
-Examples at 4 games each, 5 courts, 15-minute matches:
+If the time is too short for everyone to reach the maximum, the draw is still made and some players get fewer games; the
+Schedule tab says so. The plan line on the Schedule tab is a quick upper bound ("up to N matches"); the real draw can be a little lower.
 
-| Men / Women | Men's | Mixed | Matches | Rounds | Finish (from 09:00) | Games per man |
-|---|---|---|---|---|---|---|
-| 50 / 14 | 50 | 28 | 78 | 16 | 13:00 | 4 to 6 |
-| 44 / 20 | 44 | 40 | 84 | 17 | 13:15 | 5 to 6 |
-| 40 / 24 | 40 | 48 | 88 | 18 | 13:30 | 6 to 7 |
-| 32 / 32 | 32 | 64 | 96 | 20 | 14:00 | 7 to 9 |
+Example (5 courts, 15-minute matches, 6 games each, 09:00 start):
 
-Note: the plan line on the Schedule tab always shows the defaults (4 games, 5 hours). The time limit you type in the form is
-what is enforced when you press Generate.
+| Philippines / Rest | Matches (cross-team + filler) | Rounds | Finish |
+|---|---|---|---|
+| 21 / 25 | 63 + 6 = 69 | 14 | 12:30 |
+| 26 / 25 | 75 + 1 = 76 | 16 | 13:00 |
+| no teams, 64 players | 96 | 20 | 14:00 |
 
 ## Design
 

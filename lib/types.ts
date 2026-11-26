@@ -1,7 +1,7 @@
 export type Gender = 'M' | 'F'
 export type EventType = 'MD' | 'XD'
 /** What a match looks like on screen: women-vs-men line-ups show as handicap (HD), stored as XD. */
-export type MatchKind = EventType | 'HD'
+export type MatchKind = EventType | 'HD' | 'WD'
 export type MatchStatus = 'scheduled' | 'live' | 'done' | 'cancelled'
 
 export interface Competition {

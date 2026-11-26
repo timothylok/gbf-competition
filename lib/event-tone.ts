@@ -26,6 +26,14 @@ export const TONE: Record<
     side: 'border-l-pink',
     chip: 'bg-pink text-ink',
   },
+  WD: {
+    band: 'bg-lilac text-ink',
+    wash: 'bg-lilac/15',
+    tint: 'bg-lilac/25 text-ink',
+    win: 'bg-lilac text-ink',
+    side: 'border-l-lilac',
+    chip: 'bg-lilac text-ink',
+  },
   HD: {
     band: 'bg-coral text-ink',
     wash: 'bg-coral/15',

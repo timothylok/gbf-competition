@@ -34,7 +34,7 @@ const mix = (fg: string, bg: string, a: number) =>
 
 describe('Pantone-only palette', () => {
   it('defines exactly the Pantone colours (plus transparent/current)', () => {
-    assert.deepEqual(Object.keys(PALETTE).sort(), ['berry', 'blue', 'cloud', 'coral', 'current', 'ink', 'leaf', 'mist', 'paper', 'pink', 'stone', 'sun', 'sky', 'transparent'].sort())
+    assert.deepEqual(Object.keys(PALETTE).sort(), ['berry', 'blue', 'cloud', 'coral', 'lilac', 'current', 'ink', 'leaf', 'mist', 'paper', 'pink', 'stone', 'sun', 'sky', 'transparent'].sort())
   })
   it('uses the intended Pantone references for men\'s doubles and mixed doubles', () => {
     assert.equal(PALETTE.blue.toLowerCase(), '#00a9e0', 'PANTONE 2995 C')
@@ -43,6 +43,8 @@ describe('Pantone-only palette', () => {
     assert.match(TONE.XD.band, /bg-pink/)
     assert.equal(PALETTE.coral.toLowerCase(), '#ff6f61', 'PANTONE 16-1546 Living Coral')
     assert.match(TONE.HD.band, /bg-coral/)
+    assert.equal(PALETTE.lilac.toLowerCase(), '#b79fcf', "women's doubles lilac")
+    assert.match(TONE.WD.band, /bg-lilac/)
   })
   it('contains no non-Pantone colour classes or hex values in the source', () => {
     const allowed = new Set(Object.values(PALETTE).filter((v) => v.startsWith('#')).map((v) => v.toLowerCase()))
@@ -63,6 +65,9 @@ describe('text contrast (WCAG AA, 4.5:1)', () => {
     ['mixed doubles header (dark text on 812 C)', P.ink, P.pink],
     ['men\'s doubles score box tint', P.ink, mix(P.blue, P.paper, 0.15)],
     ['mixed doubles score box tint', P.ink, mix(P.pink, P.paper, 0.25)],
+    ["women's doubles header (dark text on lilac)", P.ink, P.lilac],
+    ["women's doubles score box tint", P.ink, mix(P.lilac, P.paper, 0.25)],
+    ["women's doubles panel wash over the field", P.ink, mix(P.lilac, mix(P.lilac, P.cloud, 0.35), 0.15)],
     ['handicap doubles header (dark text on Living Coral)', P.ink, P.coral],
     ['handicap doubles score box tint', P.ink, mix(P.coral, P.paper, 0.25)],
     ['head start line over the handicap panel wash', P.ink, mix(P.coral, mix(P.coral, P.cloud, 0.35), 0.15)],

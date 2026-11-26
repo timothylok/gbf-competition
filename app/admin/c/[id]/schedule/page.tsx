@@ -4,19 +4,18 @@ import { Banner } from '@/components/Banner'
 import { requireAdmin } from '@/lib/auth'
 import { gradeToLetter } from '@/lib/grade'
 import { headStartOf, matchKind } from '@/lib/handicap'
-import { isBadPartner } from '@/lib/scheduler'
+import { lineupIssues, teamSetup, type LineupPlayer } from '@/lib/lineup'
 import { addMatch, deleteMatch, generateSchedule, saveMatch } from '@/lib/actions'
 import { getT, type T } from '@/lib/i18n'
 import { getCompetition, getMatches, getPlayers } from '@/lib/queries'
-import { planCounts, roundsNeeded } from '@/lib/scheduler'
+import { estimatePlan } from '@/lib/scheduler'
+import { teamOf } from '@/lib/team'
 import { limitMinutes, maxRoundsFor, roundRange, roundTime } from '@/lib/time'
 import { TONE } from '@/lib/event-tone'
 import type { Match, Player } from '@/lib/types'
 
-// Defaults for a typical event: 4 games each, 5-hour limit.
-const DEFAULT_MD = 4
-const DEFAULT_XD = 4
-const DEFAULT_HD = 2 // of the mixed games: every second one is women vs men with a head start
+/** Most games any player plays by default (15-minute matches). */
+const DEFAULT_MAX_GAMES = 6
 
 function PlayerSelect({ name, players, value, label }: { name: string; players: Player[]; value?: number; label: string }) {
   return (
@@ -64,12 +63,17 @@ export default async function SchedulePage({ params, searchParams }: { params: {
   const byId = new Map(players.map((p) => [p.id, p]))
   const men = players.filter((p) => p.gender === 'M').length
   const women = players.length - men
-  const plan = planCounts(men, women, { mdGames: DEFAULT_MD, xdGames: DEFAULT_XD, hdGames: DEFAULT_HD })
-  const planned = plan.md + plan.xd + plan.hd
-  const planRounds = roundsNeeded(planned, comp.courts)
+  const withTeam = players.map((p) => ({ ...p, team: teamOf(p.nickname) }))
+  const setup = teamSetup(withTeam)
+  const nF = withTeam.filter((p) => p.team === 'F').length
   const maxRounds = maxRoundsFor(comp)
-  const perMan = men > 0 ? DEFAULT_MD + (2 * (plan.xd + plan.hd)) / men : 0
+  const plan = estimatePlan(withTeam, DEFAULT_MAX_GAMES, comp.courts)
+  const planRounds = Math.min(plan.rounds, maxRounds)
   const info = Object.fromEntries(players.map((p) => [p.id, { gender: p.gender, grade: p.grade }]))
+  const lp = (i: number): LineupPlayer | null => {
+    const p = byId.get(i)
+    return p ? { gender: p.gender, grade: p.grade, team: teamOf(p.nickname) } : null
+  }
 
   const warn = (m: Match): string[] => {
     const out: string[] = []
@@ -77,14 +81,13 @@ export default async function SchedulePage({ params, searchParams }: { params: {
     if (m.round > maxRounds) out.push(t('afterEnd'))
     const same = matches.filter((o) => o.id !== m.id && o.round === m.round && o.status !== 'cancelled')
     if (same.some((o) => o.court === m.court || ids.some((i) => [o.a1, o.a2, o.b1, o.b2].includes(i)))) out.push(t('clash'))
-    const g = (i: number) => byId.get(i)?.gender
-    // Mixed doubles is one man + one woman per side; a women-vs-men line-up is a handicap match.
-    const ok = m.event === 'MD' ? ids.every((i) => g(i) === 'M') : (g(m.a1) !== g(m.a2) && g(m.b1) !== g(m.b2)) || !!headStartOf(m, info)
-    if (!ok) out.push(t('mismatch'))
-    const pa = [byId.get(m.a1), byId.get(m.a2)]
-    const pb = [byId.get(m.b1), byId.get(m.b2)]
-    const bad = (p: typeof pa) => p[0] && p[1] && isBadPartner(p[0], p[1])
-    if (bad(pa) || bad(pb)) out.push(t('badPair'))
+    const [a1, a2, b1, b2] = ids.map(lp)
+    if (a1 && a2 && b1 && b2) {
+      const issues = lineupIssues(m.event, [a1, a2], [b1, b2], setup)
+      if (issues.includes('mismatch')) out.push(t('mismatch'))
+      if (issues.includes('grades')) out.push(t('gradesApart'))
+      if (issues.includes('team')) out.push(t('teamIssue'))
+    }
     return out
   }
 
@@ -101,24 +104,15 @@ export default async function SchedulePage({ params, searchParams }: { params: {
         <h2 className="mb-1 font-bold text-ink">{t('generate')}</h2>
         <p className="mb-3 text-sm text-ink/75">{t('generateHelp')}</p>
         <p className="mb-3 text-sm font-medium text-ink">
-          {t('planPreview')}: {players.length} {t('playersCount')} ({men} {t('menCount')}, {women} {t('womenCount')}) → {planned} {t('planMatches')} ({t('MD')} {plan.md}, {t('XD')} {plan.xd}, {t('HD')} {plan.hd}),{' '}
-          {planRounds} {t('planRounds')}, {t('planFinish')} {roundTime(comp.start_time, comp.slot_minutes, planRounds + 1)}, ~{perMan.toFixed(1)} {t('menPlay')}.{' '}
-          <span className={planRounds > maxRounds ? 'font-bold text-ink underline decoration-berry decoration-2' : 'text-ink'}>
-            {planRounds > maxRounds ? `⚠ ${t('planOver')}` : `✓ ${t('planFits')}`}
-          </span>
+          {t('planPreview')}: {players.length} {t('playersCount')} ({men} {t('menCount')}, {women} {t('womenCount')}
+          {setup.active ? `; ${t('teamF')} ${nF}, ${t('teamR')} ${players.length - nF}` : ''}) → {t('planUpTo')} {plan.matches} {t('planMatches')}
+          {setup.active && plan.filler > 0 ? ` (${plan.cross} + ${plan.filler} ${t('planFiller')})` : ''}, {planRounds} {t('planRounds')}, {t('planFinish')} {roundTime(comp.start_time, comp.slot_minutes, planRounds + 1)}.{' '}
+          <span className="text-ink">{plan.rounds > maxRounds ? `⚠ ${t('planOver')}` : `✓ ${t('planFits')}`}</span>
         </p>
-        <div className="grid grid-cols-2 gap-3 sm:max-w-3xl sm:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3 sm:max-w-xl sm:grid-cols-3">
           <div>
-            <label htmlFor="mdGames" className="label">{t('mdGames')}</label>
-            <input id="mdGames" name="mdGames" type="number" min={0} max={10} defaultValue={DEFAULT_MD} className="input" />
-          </div>
-          <div>
-            <label htmlFor="xdGames" className="label">{t('xdGames')}</label>
-            <input id="xdGames" name="xdGames" type="number" min={0} max={10} defaultValue={DEFAULT_XD} className="input" />
-          </div>
-          <div>
-            <label htmlFor="hdGames" className="label">{t('hdGames')}</label>
-            <input id="hdGames" name="hdGames" type="number" min={0} max={10} defaultValue={DEFAULT_HD} className="input" />
+            <label htmlFor="maxGames" className="label">{t('maxGames')}</label>
+            <input id="maxGames" name="maxGames" type="number" min={1} max={10} defaultValue={DEFAULT_MAX_GAMES} className="input" />
           </div>
           <div>
             <label htmlFor="hours" className="label">{t('windowHours')}</label>

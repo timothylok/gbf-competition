@@ -22,9 +22,14 @@ export interface HeadStart {
   covered: boolean
 }
 
-/** On-screen kind of a match: women-vs-men line-ups are handicap (HD), otherwise the stored event. */
+/**
+ * On-screen kind of a match: women-vs-men line-ups are handicap (HD), four women is women's doubles (WD),
+ * otherwise the stored event (MD or XD). HD and WD are stored as XD, so the database needs no change.
+ */
 export function matchKind(m: { event: 'MD' | 'XD'; a1: number; a2: number; b1: number; b2: number }, info: Record<number, Lineup>) {
-  return headStartOf(m, info) ? ('HD' as const) : m.event
+  if (headStartOf(m, info)) return 'HD' as const
+  if ([m.a1, m.a2, m.b1, m.b2].every((i) => info[i]?.gender === 'F')) return 'WD' as const
+  return m.event
 }
 
 export function headStartOf(m: { a1: number; a2: number; b1: number; b2: number }, info: Record<number, Lineup>): HeadStart | null {

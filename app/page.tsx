@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { AutoRefresh } from '@/components/AutoRefresh'
 import { CompTabs } from '@/components/CompTabs'
 import { MatchCard } from '@/components/MatchCard'
@@ -36,6 +37,9 @@ export default async function LivePage({ searchParams }: { searchParams: { c?: s
     <>
       {comp.status === 'live' && <AutoRefresh />}
       <CompTabs comp={comp} active="live" />
+      <p className="mb-5">
+        <Link href={`/schedule/print?c=${comp.id}`} className="btn-ghost" data-testid="print-link">{t('printSchedule')}</Link>
+      </p>
       <Section title={t('nowPlaying')} empty={t('nothingLive')} items={live} />
       <Section title={t('upNext')} empty={t('nothingNext')} items={next} />
       <Section title={t('latestResults')} empty={t('nothingDone')} items={done} />

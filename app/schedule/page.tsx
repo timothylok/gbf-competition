@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { AutoRefresh } from '@/components/AutoRefresh'
 import { CompTabs } from '@/components/CompTabs'
 import { MatchCard } from '@/components/MatchCard'
+import Link from 'next/link'
 import { getT } from '@/lib/i18n'
 import { loadPublic } from '@/lib/public'
 import { roundTime } from '@/lib/time'
@@ -33,6 +34,9 @@ export default async function SchedulePage({ searchParams }: { searchParams: { c
         </div>
         <button className="btn-primary" type="submit">{t('filter')}</button>
       </form>
+      <p className="mb-5">
+        <Link href={`/schedule/print?c=${comp.id}`} className="btn-ghost" data-testid="print-link">{t('printSchedule')}</Link>
+      </p>
       {rounds.length === 0 && <p className="text-sm text-ink/75">{t('noMatches')}</p>}
       {rounds.map((r) => (
         <section key={r} className="mb-6" aria-label={`${t('round')} ${r}`}>

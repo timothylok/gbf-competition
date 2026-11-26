@@ -18,14 +18,14 @@ Players are shown by **nickname**, so check yours is spelled the way you want wi
 
 ## Format
 
-- **Men's doubles** are played first, then **mixed doubles**.
-- Every man plays the same set number of men's doubles games (default 4).
-- Every woman plays the same set number of mixed doubles games (default 4). Women only play mixed.
-- Men also fill the other places in mixed matches as **extra games**, so a few men may play one or two more games than others.
+- Players whose nickname ends in **-F** are the Philippines team. Every match is **Philippines against the rest**.
+- Both sides are the same type: men vs men, women vs women, or mixed vs mixed. Women may also play two men with a head start.
+- All four players in a match are within one grade of each other (same grade where possible).
+- Everyone plays **at most 6 games**. Nearly everyone gets all 6.
 - You will not be in two matches in the same round, and partners are not repeated where it can be avoided.
 - Matches are **time-limited** (for example 15 minutes), so a draw is possible.
 
-Match panels are colour-coded: blue is men's doubles, pink is mixed doubles.
+Match panels are colour-coded: blue is men's doubles, pink is mixed doubles, lilac is women's doubles and coral is handicap (women against men, with a head start for the women).
 
 ## Scoring
 

@@ -8,6 +8,7 @@ import { attemptLogin, endSession, requireAdmin } from './auth'
 import { back, parsePlayerLines } from './action-utils'
 import { parseGrade } from './grade'
 import { generatePlan } from './scheduler'
+import { teamOf } from './team'
 import { maxRoundsFor } from './time'
 import type { Key } from './i18n'
 
@@ -196,7 +197,7 @@ export async function generateSchedule(fd: FormData) {
   const id = int.parse(f.id)
   const path = `/admin/c/${id}/schedule`
   const r = z
-    .object({ mdGames: int.min(0).max(10), xdGames: int.min(0).max(10), hdGames: int.min(0).max(10).optional(), hours: z.coerce.number().min(0.5).max(24), seed: int.min(0).max(1_000_000) })
+    .object({ maxGames: int.min(1).max(10), hours: z.coerce.number().min(0.5).max(24), seed: int.min(0).max(1_000_000) })
     .safeParse(f)
   if (!r.success) back(path, 'err', 'invalid')
 
@@ -210,19 +211,18 @@ export async function generateSchedule(fd: FormData) {
     [id],
   )
   if (started.n > 0) back(path, 'err', 'locked')
-  const rows = await query<{ id: number; gender: 'M' | 'F'; grade: number | null; d_friendly: boolean }>(
-    'SELECT id, gender, grade, d_friendly FROM players WHERE competition_id=$1',
+  const rows = await query<{ id: number; nickname: string; gender: 'M' | 'F'; grade: number | null; d_friendly: boolean }>(
+    'SELECT id, nickname, gender, grade, d_friendly FROM players WHERE competition_id=$1',
     [id],
   )
-  const players = rows.map((p) => ({ id: p.id, gender: p.gender, grade: p.grade, dFriendly: p.d_friendly }))
+  const players = rows.map((p) => ({ id: p.id, gender: p.gender, grade: p.grade, dFriendly: p.d_friendly, team: teamOf(p.nickname) }))
   if (players.length < 4) back(path, 'err', 'players')
 
-  const plan = generatePlan(players, comps[0].courts, { mdGames: r.data.mdGames, xdGames: r.data.xdGames, hdGames: r.data.hdGames ?? 0 }, r.data.seed)
-  if (plan.matches.length === 0) back(path, 'err', 'players')
-  // Hard time limit: refuse a draw that would run past it.
-  // Both limits apply: the hours typed in the form and the competition's end time.
+  // The draw stops at the last round that fits: both the hours typed in the form and the competition's end time apply.
   const maxRounds = Math.min(Math.floor((r.data.hours * 60) / comps[0].slot_minutes), maxRoundsFor(comps[0]))
-  if (plan.rounds > maxRounds) back(path, 'err', 'toolong')
+  if (maxRounds < 1) back(path, 'err', 'toolong')
+  const plan = generatePlan(players, comps[0].courts, { maxGames: r.data.maxGames, maxRounds }, r.data.seed)
+  if (plan.matches.length === 0) back(path, 'err', 'players')
 
   // One statement: delete the old draw and insert the new one atomically.
   const params: unknown[] = [id]
@@ -236,7 +236,11 @@ export async function generateSchedule(fd: FormData) {
      INSERT INTO matches (competition_id, event, round, court, a1, a2, b1, b2) VALUES ${values.join(',')}`,
     params,
   )
-  await audit(s.name, 'schedule.generate', `#${id}: ${plan.matches.length} matches, seed ${r.data.seed}, MD ${r.data.mdGames}/man, XD ${r.data.xdGames}/woman (handicap ${r.data.hdGames ?? 0})`)
+  await audit(
+    s.name,
+    'schedule.generate',
+    `#${id}: ${plan.matches.length} matches in ${plan.rounds} rounds, seed ${r.data.seed}, max ${r.data.maxGames} games (handicap ${plan.hdCount}, filler ${plan.fillerCount}, under cap ${plan.underCap.length})`,
+  )
   back(path, 'ok', plan.warnings.length ? 'generated_warn' : 'generated')
 }
 

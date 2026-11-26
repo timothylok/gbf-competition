@@ -3,13 +3,14 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-export function AdminTabs({ id, labels }: { id: number; labels: { overview: string; players: string; schedule: string; scores: string } }) {
+export function AdminTabs({ id, labels }: { id: number; labels: { overview: string; players: string; schedule: string; scores: string; text: string } }) {
   const path = usePathname()
   const tabs = [
     { href: `/admin/c/${id}`, label: labels.overview },
     { href: `/admin/c/${id}/players`, label: labels.players },
     { href: `/admin/c/${id}/schedule`, label: labels.schedule },
     { href: `/admin/c/${id}/scores`, label: labels.scores },
+    { href: `/admin/c/${id}/text`, label: labels.text },
   ]
   return (
     <nav aria-label="Competition sections" className="mb-5 flex gap-1 overflow-x-auto border-b border-mist">

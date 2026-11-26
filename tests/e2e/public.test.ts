@@ -144,7 +144,7 @@ describe('what a logged-out visitor sees', () => {
     const c2 = await createCompetition(page, 'XSS Check')
     await go(page, `/admin/c/${c2}/players`)
     await submit(page, [['id', String(c2)], ['text', null]], { text: ['<img src=x onerror=alert(1)>, M, 1', 'B, M', 'C, M', 'D, M'].join('\n') })
-    await generate(page, c2, { md: 1, xd: 0 })
+    await generate(page, c2, { maxGames: 1 })
     await setStatus(page, c2, 'live')
     const html = (await fetchHtml(`/schedule?c=${c2}`)).html
     assert.doesNotMatch(html, /<img src=x/, 'raw tag must not appear')

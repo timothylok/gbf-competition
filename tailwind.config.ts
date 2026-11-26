@@ -16,7 +16,8 @@ const pantone = {
   pink: '#FF5FA2', //   PANTONE 812 C                  mixed doubles (neon pink)
   sun: '#F5DF4D', //    PANTONE 13-0647 Illuminating   live, highlights, focus
   leaf: '#88B04B', //   PANTONE 15-0343 Greenery       final / success
-  coral: '#FF6F61', //  PANTONE 16-1546 Living Coral    handicap doubles (light: use dark text on it)
+  lilac: '#B79FCF', //  PANTONE 16-3820 Dusty Lavender  women's doubles (light: use dark text on it)
+  coral: '#FF6F61',//  PANTONE 16-1546 Living Coral    handicap doubles (light: use dark text on it)
   berry: '#BB2649', //  PANTONE 18-1750 Viva Magenta   errors, destructive
 }
 

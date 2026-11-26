@@ -1,6 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { parsePlayerLines } from '../../lib/action-utils'
+import { withGrade } from '../../lib/grade'
 
 describe('parsePlayerLines (bulk player entry)', () => {
   it('parses nickname, gender and optional grade', () => {
@@ -47,5 +48,17 @@ describe('parsePlayerLines (bulk player entry)', () => {
   it('handles a full 64-player paste', () => {
     const text = Array.from({ length: 64 }, (_, i) => `P${i}, ${i % 2 ? 'F' : 'M'}, ${(i % 3) + 1}`).join('\n')
     assert.equal(parsePlayerLines(text).players.length, 64)
+  })
+})
+
+describe('withGrade (schedule names)', () => {
+  it('writes the nickname with the grade letter after it', () => {
+    assert.equal(withGrade('Alex', 3), 'Alex - (C)')
+    assert.equal(withGrade('Sam Lee-RW', 4), 'Sam Lee-RW - (D)')
+    assert.equal(withGrade('Ted', 2), 'Ted - (B)')
+  })
+  it('leaves the nickname alone when there is no grade', () => {
+    assert.equal(withGrade('Mei', null), 'Mei')
+    assert.equal(withGrade('Mei', undefined), 'Mei')
   })
 })

@@ -38,6 +38,10 @@ describe('matchKind / headStartOf', () => {
     assert.equal(matchKind({ event: 'XD', a1: 1, a2: 3, b1: 5, b2: 6 }, info), 'XD')
     assert.equal(matchKind({ event: 'MD', a1: 3, a2: 4, b1: 3, b2: 4 }, info), 'MD')
   })
+  it("four women is women's doubles (WD), still stored as XD", () => {
+    const w = { 1: W(3), 2: W(3), 3: W(3), 4: W(3) }
+    assert.equal(matchKind({ event: 'XD', a1: 1, a2: 2, b1: 3, b2: 4 }, w), 'WD')
+  })
   it('returns null when a player is unknown', () => {
     assert.equal(headStartOf({ a1: 1, a2: 2, b1: 3, b2: 99 }, info), null)
   })

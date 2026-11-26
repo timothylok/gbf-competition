@@ -110,9 +110,9 @@ export async function addPlayers(page: Page, comp: number, text: string) {
   await submit(page, [['id', String(comp)], ['text', null]], { text })
 }
 
-export async function generate(page: Page, comp: number, opts: { md?: number; xd?: number; hours?: number; seed?: number; serverOnly?: boolean } = {}) {
+export async function generate(page: Page, comp: number, opts: { maxGames?: number; hours?: number; seed?: number; serverOnly?: boolean } = {}) {
   await go(page, `/admin/c/${comp}/schedule`)
-  await submit(page, [['mdGames', null]], { mdGames: String(opts.md ?? 4), xdGames: String(opts.xd ?? 4), hours: String(opts.hours ?? 5), seed: String(opts.seed ?? 1) }, 'Generate schedule', { serverOnly: opts.serverOnly })
+  await submit(page, [['maxGames', null]], { maxGames: String(opts.maxGames ?? 6), hours: String(opts.hours ?? 5), seed: String(opts.seed ?? 1) }, 'Generate schedule', { serverOnly: opts.serverOnly })
 }
 
 export async function setStatus(page: Page, comp: number, status: 'draft' | 'live' | 'finished') {
