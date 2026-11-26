@@ -437,7 +437,7 @@ describe(`game rules: Philippines vs the rest, grades, handicap (${N} players, $
       'avoid: grade:D & team:F | grade:B & team:F',
       'avoid: grade:D & team:F | PM04, PM05',
       'avoid: PW03, PM06 | grade:B & team:F',
-      'pair: PW05 + PM01',
+      'pair: PW05 & team:F + PM01 & team:F',
     ].join('\n')
     await saveRules(RULES)
     await go(page, `/admin/c/${c}`)

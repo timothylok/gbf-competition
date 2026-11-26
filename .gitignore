@@ -10,3 +10,4 @@ next-env.d.ts
 .e2e-tmp
 tests/e2e/.artifacts
 docs/player-list.txt*
+docs/pairing-rules.txt*

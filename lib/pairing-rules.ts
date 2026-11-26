@@ -1,4 +1,4 @@
-import { parseGrade } from './grade'
+import { gradeToLetter, parseGrade } from './grade'
 import { teamOf, type Team } from './team'
 
 /**
@@ -6,6 +6,7 @@ import { teamOf, type Team } from './team'
  *
  *   avoid: <who> | <who>      the two groups never partner each other (same side of the net)
  *   pair:  <name> + <name>    the two play on the same side in mixed doubles at least once
+ *                             (each side is one player: a nickname, optionally `& team:F`)
  *
  * <who> is a comma-separated list; a player matches if any item matches. An item is a nickname
  * (a trailing -F or -RW is ignored, or give the exact nickname), `grade:B`, or `team:F` / `team:R`.
@@ -18,7 +19,7 @@ type Selector = Term[][]
 
 export type Rule =
   | { kind: 'avoid'; line: number; a: Selector; b: Selector }
-  | { kind: 'pair'; line: number; a: string; b: string }
+  | { kind: 'pair'; line: number; a: Term[]; b: Term[] }
 
 export interface RuleProblem {
   line: number
@@ -112,10 +113,23 @@ export function parseRules(text: string | null | undefined): ParsedRules {
         errors.push({ line, message: 'Write pair: <name> + <name> (two names with one "+").' })
         return
       }
-      rules.push({ kind: 'pair', line, a: parts[0], b: parts[1] })
+      const before = errors.length
+      const a = parseSelector(parts[0], line, errors)
+      const b = parseSelector(parts[1], line, errors)
+      if (errors.length > before) return
+      if (a.length !== 1 || b.length !== 1) {
+        errors.push({ line, message: 'Each side of pair: is one player: a nickname, optionally with & team:F (no commas).' })
+        return
+      }
+      rules.push({ kind: 'pair', line, a: a[0], b: b[0] })
     }
   })
   return { rules, errors }
+}
+
+/** How a group reads in a message, e.g. "Alex & team:F". */
+function describe(group: Term[]): string {
+  return group.map((t) => (t.kind === 'name' ? t.name : t.kind === 'grade' ? `grade:${gradeToLetter(t.grade)}` : `team:${t.team}`)).join(' & ')
 }
 
 /** Players matching one group (all items must match). */
@@ -161,10 +175,11 @@ export function compileRules(parsed: ParsedRules, players: RulePlayer[]): Compil
       const B = resolveSelector(rule.b, rule.line)
       for (const x of A) for (const y of B) if (x.id !== y.id) forbidden.add(partnerKey(x.id, y.id))
     } else {
-      const one = (name: string) => {
-        const found = matchGroup([{ kind: 'name', name }], players)
-        if (found.length === 0) warnings.push({ line: rule.line, message: `No player matches "${name}".` })
-        else if (found.length > 1) problems.push({ line: rule.line, message: `"${name}" matches ${found.length} players (${found.map((p) => p.nickname).join(', ')}). Use the exact nickname.` })
+      const one = (group: Term[]) => {
+        const label = describe(group)
+        const found = matchGroup(group, players)
+        if (found.length === 0) warnings.push({ line: rule.line, message: `No player matches "${label}".` })
+        else if (found.length > 1) problems.push({ line: rule.line, message: `"${label}" matches ${found.length} players (${found.map((p) => p.nickname).join(', ')}). Use the exact nickname, or add & team:F.` })
         return found.length === 1 ? found[0] : null
       }
       const a = one(rule.a)

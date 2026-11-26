@@ -24,7 +24,7 @@ describe('parseRules (the rules box)', () => {
     assert.deepEqual(errors, [])
     assert.equal(rules.length, 2)
     assert.equal(rules[0].kind, 'avoid')
-    assert.deepEqual(rules[1], { kind: 'pair', line: 4, a: 'Kim', b: 'Alex-F' })
+    assert.deepEqual(rules[1], { kind: 'pair', line: 4, a: [{ kind: 'name', name: 'Kim' }], b: [{ kind: 'name', name: 'Alex-F' }] })
   })
   it('is case-insensitive for the keywords and handles spaces in nicknames', () => {
     const { rules, errors } = parseRules('AVOID : Mike M , Jo | Lee')
@@ -80,6 +80,19 @@ describe('compileRules (names and groups become player ids)', () => {
     assert.equal(sameSex.required.length, 0)
     assert.match(sameSex.problems[0].message, /one man and one woman from the same team/)
     assert.match(compileRules(parseRules('pair: Kim + Max'), ROSTER).problems[0].message, /same team/)
+  })
+  it('pair: accepts & team:F on each side, which also settles a name shared with a rest player', () => {
+    assert.deepEqual(compileRules(parseRules('pair: Kim & team:F + Alex & team:F'), ROSTER).required, [[3, 1]])
+    const ambiguous = compileRules(parseRules('pair: Kim + Alex'), ROSTER)
+    assert.equal(ambiguous.required.length, 0)
+    assert.match(ambiguous.problems[0].message, /"Alex" matches 2 players \(Alex-F, Alex\)\. Use the exact nickname, or add & team:F/)
+    assert.match(compileRules(parseRules('pair: Nobody & team:F + Kim & team:F'), ROSTER).warnings[0].message, /No player matches "Nobody & team:F"/)
+  })
+  it('pair: each side is exactly one player', () => {
+    const { errors } = parseRules('pair: Kim, Jo + Alex-F')
+    assert.equal(errors.length, 1)
+    assert.match(errors[0].message, /Each side of pair: is one player/)
+    assert.equal(parseRules('pair: Kim & grade:Z + Alex-F').errors.length, 1, 'a bad grade on a pair side is reported')
   })
 })
 

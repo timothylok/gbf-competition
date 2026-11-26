@@ -43,11 +43,11 @@ avoid: grade:D & team:F | grade:B & team:F
 avoid: grade:D & team:F | Alex, Sam
 avoid: Kim, Lee | grade:B & team:F
 # these two play mixed doubles together at least once
-pair: Kim + Jo
+pair: Kim & team:F + Jo & team:F
 ```
 
 - **`avoid: <who> | <who>`**: no one in the first group is ever the partner (same side of the net) of anyone in the second. Opponents are not restricted.
-- **`pair: <name> + <name>`**: the two partner at least once, in mixed doubles, so they must be one man and one woman of the same team.
+- **`pair: <name> + <name>`**: the two partner at least once, in mixed doubles, so they must be one man and one woman of the same team. Each side is one player: a nickname, optionally with `& team:F` (no commas).
 - **`<who>`** is a comma-separated list; a player matches if any item matches. An item is a nickname (a trailing `-F` or `-RW` is ignored, or write the exact nickname), `grade:B`, or `team:F` (nicknames ending `-F`) / `team:R` (everyone else). Join items with `&` when all must match, for example `grade:D & team:F`.
 - A nickname that matches more than one player (for example `Alex` and `Alex-F`) is refused: write the exact nickname, or add `& team:F`. A nickname that matches nobody is only a warning.
 - **Rules win over games.** The draw never breaks a rule; if the rules make a player's 6th game impossible, that player gets fewer games, and a required pair that cannot be made is reported. Rules are applied together with the grade rule (all four players within one grade), so `avoid: grade:D | grade:B` is already covered.
