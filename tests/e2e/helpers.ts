@@ -143,7 +143,7 @@ export async function listMatches(page: Page, comp: number): Promise<ScoreCard[]
       .filter((f) => f.querySelector('[name=score_a]'))
       .map((f) => {
         const spans = [...f.querySelectorAll('header span')].map((s) => s.textContent?.trim() ?? '')
-        const names = [...f.querySelectorAll('p.flex-1')].flatMap((p) => (p as HTMLElement).innerText.split('\n').map((x) => x.trim()).filter(Boolean))
+        const names = [...f.querySelectorAll('p.flex-1')].flatMap((p) => (p as HTMLElement).innerText.split('\n').map((x) => x.trim()).filter(Boolean).map((x) => x.replace(/ - \([A-I]\)$/, '')))
         return {
           id: Number((f.querySelector('[name=id]') as HTMLInputElement).value),
           event: (/Men/.test(spans[spans.length - 1]) ? 'MD' : 'XD') as 'MD' | 'XD',
@@ -181,8 +181,8 @@ export function toText(html: string): string {
 /** Text of each match panel (<article>) on a public page. */
 export const cards = (html: string): string[] => html.split('<article').slice(1).map((c) => toText('<article' + c.split('</article>')[0]))
 
-/** Cells of each standings table row. */
+/** Cells of each standings table row (a nickname's grade suffix " - (B)" is dropped). */
 export const tableRows = (html: string): string[][] =>
   [...html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)]
-    .map((m) => [...m[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/g)].map((c) => toText(c[1])))
+    .map((m) => [...m[1].matchAll(/<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/g)].map((c) => toText(c[1]).replace(/ - \([A-I]\)$/, '')))
     .filter((r) => r.length > 1)

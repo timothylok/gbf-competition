@@ -93,7 +93,7 @@ describe('what a logged-out visitor sees', () => {
 
   it('shows a player\'s record and only their matches', async () => {
     const html = (await fetchHtml(q('/standings?e=MD'))).html
-    const link = html.match(new RegExp(`href="/players/(\\d+)\\?c=${comp}"[^>]*>\\s*${mdFinal.names[0]}\\s*<`))
+    const link = html.match(new RegExp(`href="/players/(\\d+)\\?c=${comp}"[^>]*>\\s*${mdFinal.names[0]}( - \\([A-I]\\))?\\s*<`))
     assert(link, 'player link on the standings page')
     const player = await fetchHtml(`/players/${link![1]}`)
     assert.match(player.text, new RegExp(mdFinal.names[0]))
@@ -103,7 +103,7 @@ describe('what a logged-out visitor sees', () => {
 
   it('filters the schedule by player', async () => {
     const html = (await fetchHtml(q('/standings?e=MD'))).html
-    const id = html.match(new RegExp(`href="/players/(\\d+)\\?c=${comp}"[^>]*>\\s*${mdFinal.names[0]}\\s*<`))![1]
+    const id = html.match(new RegExp(`href="/players/(\\d+)\\?c=${comp}"[^>]*>\\s*${mdFinal.names[0]}( - \\([A-I]\\))?\\s*<`))![1]
     const filtered = cards((await fetchHtml(q(`/schedule?p=${id}`))).html)
     assert(filtered.length >= 3 && filtered.length < 10)
     for (const c of filtered) assert(c.includes(mdFinal.names[0]))
@@ -149,5 +149,28 @@ describe('what a logged-out visitor sees', () => {
     const html = (await fetchHtml(`/schedule?c=${c2}`)).html
     assert.doesNotMatch(html, /<img src=x/, 'raw tag must not appear')
     assert.match(html, /&lt;img src=x/)
+  })
+  it('every page has the rights notice, the no-copying clause and the credit in the footer (English and Hong Kong Chinese)', async () => {
+    const year = new Date().getFullYear()
+    for (const path of ['/', q('/'), q('/schedule'), q('/schedule/print'), q('/standings'), '/events', '/admin/login']) {
+      const text = (await fetchHtml(path)).text
+      assert.match(text, new RegExp(`© ${year} All rights reserved by Grand Badminton Family\\.`), `${path}: rights notice`)
+      assert.match(text, /No information or data on this site may be copied, used or published without the approval of Grand Badminton Family\./, `${path}: clause`)
+      assert.match(text, /Credit: Developed by Tim Lok/, `${path}: credit`)
+    }
+    const zh = (await fetchHtml('/', 'lang=zh')).text
+    assert.match(zh, /版權所有 Grand Badminton Family。/)
+    assert.match(zh, /未經 Grand Badminton Family 批准，不得複製、使用或發佈本網站的任何資料或數據。/)
+    assert.match(zh, /鳴謝：由 Tim Lok 開發/)
+  })
+
+  it('the public schedule and the printout show the warm-up for all courts before round 1', async () => {
+    const sched = (await fetchHtml(q('/schedule'))).text
+    assert.match(sched, /Warm-up 09:00–09:15 · all courts, no matches/)
+    assert.match(sched, /Round 1 · 09:15/)
+    const printout = (await fetchHtml(q('/schedule/print'))).text
+    assert.match(printout, /09:00–09:15 · Warm-up \(all courts, no matches\)/)
+    const byCourt = (await fetchHtml(q('/schedule/print?by=court'))).text
+    assert((byCourt.match(/Warm-up/g) ?? []).length >= 3, 'each court group starts with a warm-up row')
   })
 })

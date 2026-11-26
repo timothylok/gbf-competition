@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { Banner } from '@/components/Banner'
 import { requireAdmin } from '@/lib/auth'
-import { gradeToLetter } from '@/lib/grade'
+import { gradeToLetter, withGrade } from '@/lib/grade'
 import { headStartOf, matchKind } from '@/lib/handicap'
 import { lineupIssues, teamSetup, type LineupPlayer } from '@/lib/lineup'
 import { addMatch, deleteMatch, generateSchedule, saveMatch } from '@/lib/actions'
@@ -10,7 +10,7 @@ import { getT, type T } from '@/lib/i18n'
 import { getCompetition, getMatches, getPlayers } from '@/lib/queries'
 import { estimatePlan } from '@/lib/scheduler'
 import { teamOf } from '@/lib/team'
-import { limitMinutes, maxRoundsFor, roundRange, roundTime } from '@/lib/time'
+import { limitMinutes, maxRoundsFor, roundRange, roundTime, warmupRange } from '@/lib/time'
 import { TONE } from '@/lib/event-tone'
 import type { Match, Player } from '@/lib/types'
 
@@ -68,7 +68,7 @@ export default async function SchedulePage({ params, searchParams }: { params: {
   const nF = withTeam.filter((p) => p.team === 'F').length
   const maxRounds = maxRoundsFor(comp)
   const plan = estimatePlan(withTeam, DEFAULT_MAX_GAMES, comp.courts)
-  const planRounds = Math.min(plan.rounds, maxRounds)
+  const planRounds = plan.rounds
   const info = Object.fromEntries(players.map((p) => [p.id, { gender: p.gender, grade: p.grade }]))
   const lp = (i: number): LineupPlayer | null => {
     const p = byId.get(i)
@@ -93,7 +93,10 @@ export default async function SchedulePage({ params, searchParams }: { params: {
 
   const editing = searchParams.m ? matches.find((m) => m.id === Number(searchParams.m)) : undefined
   const rounds = [...new Set(matches.map((m) => m.round))].sort((a, b) => a - b)
-  const nm = (i: number) => byId.get(i)?.nickname ?? '?'
+  const nm = (i: number) => {
+    const p = byId.get(i)
+    return p ? withGrade(p.nickname, p.grade) : '?'
+  }
 
   return (
     <>
@@ -140,6 +143,7 @@ export default async function SchedulePage({ params, searchParams }: { params: {
         </form>
       )}
 
+      <p className="mb-4 rounded-lg border border-mist bg-paper/60 px-4 py-2 text-sm font-semibold text-ink" data-testid="warmup">{t('warmup')} {warmupRange(comp.start_time)} · {t('allCourts')}</p>
       {rounds.length === 0 && <p className="mb-6 text-sm text-ink/75">{t('noMatches')}</p>}
       {rounds.length > 0 && (
         <p className="mb-3 text-sm font-semibold text-ink">

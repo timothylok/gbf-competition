@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import { Banner } from '@/components/Banner'
 import { requireAdmin } from '@/lib/auth'
 import { scoreMatch } from '@/lib/actions'
+import { withGrade } from '@/lib/grade'
 import { getT, type T } from '@/lib/i18n'
 import { getCompetition, getMatches, getPlayers } from '@/lib/queries'
 import { roundRange } from '@/lib/time'
@@ -70,7 +71,7 @@ export default async function ScoresPage({ params, searchParams }: { params: { i
   const comp = await getCompetition(id)
   if (!comp) notFound()
   const [players, matches] = await Promise.all([getPlayers(id), getMatches(id)])
-  const names = new Map(players.map((p) => [p.id, p.nickname]))
+  const names = new Map(players.map((p) => [p.id, withGrade(p.nickname, p.grade)]))
   const nm = (i: number) => names.get(i) ?? '?'
   const info = Object.fromEntries(players.map((p) => [p.id, { gender: p.gender, grade: p.grade }]))
 

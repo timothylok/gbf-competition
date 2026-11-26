@@ -17,7 +17,7 @@ async function readSchedule(page: Page, comp: number): Promise<Row[]> {
           round,
           court: Number(spans[0].textContent?.replace(/\D/g, '')),
           event: (spans[1].textContent?.includes("Men's") ? 'MD' : 'XD') as 'MD' | 'XD',
-          names: label.split(/\s*\/\s*|\s+vs\s+/).map((x) => x.trim()).filter(Boolean),
+          names: label.split(/\s*\/\s*|\s+vs\s+/).map((x) => x.trim()).filter(Boolean).map((x) => x.replace(/ - \([A-I]\)$/, '')),
           warnings: li.querySelectorAll('span[title]').length,
         }
       })
@@ -47,9 +47,10 @@ describe('draw generation (44 men, 20 women, no teams: 5 courts, 5-hour limit, a
     const text = await page.evaluate(() => document.body.innerText)
     assert.match(text, /64 players \(44 men, 20 women\)/)
     assert.match(text, /up to 96 matches/)
+    // 96 matches need 20 rounds; after the 15-minute warm-up only 19 fit in 5 hours, so the plan warns
     assert.match(text, /20 rounds/)
-    assert.match(text, /estimated finish 14:00/)
-    assert.match(text, /fits the time limit/)
+    assert.match(text, /estimated finish 14:15/)
+    assert.match(text, /OVER the time limit/)
   })
 
   it('refuses nonsense settings', async () => {
@@ -62,7 +63,7 @@ describe('draw generation (44 men, 20 women, no teams: 5 courts, 5-hour limit, a
     assert.match((await banner(page)) ?? '', /Schedule generated/)
     rows = await readSchedule(page, comp)
     assert(rows.length >= 90 && rows.length <= 96, `${rows.length} matches (96 when everyone plays 6)`)
-    assert(Math.max(...rows.map((r) => r.round)) <= 20, 'no round after 14:00')
+    assert(Math.max(...rows.map((r) => r.round)) <= 19, 'no round after 14:00 (19 rounds after the warm-up)')
     assert.equal(rows.reduce((n, r) => n + r.warnings, 0), 0, 'no clash, line-up, grade or team warnings')
   })
 
@@ -98,10 +99,10 @@ describe('draw generation (44 men, 20 women, no teams: 5 courts, 5-hour limit, a
   })
 
   it('a tighter time limit gives fewer games instead of a late finish', async () => {
-    await generate(page, comp, { hours: 4, seed: 11 }) // 4 hours = 16 rounds
+    await generate(page, comp, { hours: 4, seed: 11 }) // 4 hours = 15 rounds after the warm-up
     assert.match((await banner(page)) ?? '', /fewer games than planned/)
     const tight = await readSchedule(page, comp)
-    assert(Math.max(...tight.map((r) => r.round)) <= 16, 'nothing after 13:00')
+    assert(Math.max(...tight.map((r) => r.round)) <= 15, 'nothing after 13:00 (15 rounds after the warm-up)')
     assert(tight.length < rows.length, 'fewer matches than the 5-hour draw')
     await generate(page, comp, { seed: 11 }) // back to the full draw
     rows = await readSchedule(page, comp)

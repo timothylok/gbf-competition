@@ -40,8 +40,12 @@ export default async function PrintSchedule({ searchParams }: { searchParams: { 
       <p className="mb-4 text-sm text-ink">
         {comp.event_date} · {comp.start_time} · {comp.courts} {t('courtsShort')} · {comp.slot_minutes} min
       </p>
-      {groups.length === 0 && <p className="text-sm text-ink">{t('noMatches')}</p>}
-      {groups.map((g) => (
+      {groups.every((g) => g.rows.every((r) => r.warmup)) && <p className="text-sm text-ink">{t('noMatches')}</p>}
+      {groups.map((g) => g.rows.length === 0 ? (
+        <section key={g.title} className="mb-5 break-inside-avoid" data-testid="warmup">
+          <h2 className="mb-1 text-base font-bold text-ink">{g.title}</h2>
+        </section>
+      ) : (
         <section key={g.title} className="mb-5 break-inside-avoid">
           <h2 className="mb-1 text-base font-bold text-ink">{g.title}</h2>
           <table className="w-full border-collapse text-left text-sm text-ink">
@@ -55,7 +59,12 @@ export default async function PrintSchedule({ searchParams }: { searchParams: { 
               </tr>
             </thead>
             <tbody>
-              {g.rows.map((r) => (
+              {g.rows.map((r) => r.warmup ? (
+                <tr key={`warmup-${r.court}`} className="warmup-row border-b border-ink/20 align-top">
+                  <td className="whitespace-nowrap py-1 pr-3">{r.when}</td>
+                  <td className="py-1 font-semibold" colSpan={3}>{r.kind}</td>
+                </tr>
+              ) : (
                 <tr key={`${r.round}-${r.court}`} className="border-b border-mist align-top">
                   <td className="whitespace-nowrap py-1 pr-3">{by === 'court' ? r.when : r.courtLabel}</td>
                   <td className="py-1 pr-3">{r.kind}</td>

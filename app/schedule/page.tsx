@@ -3,9 +3,10 @@ import { AutoRefresh } from '@/components/AutoRefresh'
 import { CompTabs } from '@/components/CompTabs'
 import { MatchCard } from '@/components/MatchCard'
 import Link from 'next/link'
+import { withGrade } from '@/lib/grade'
 import { getT } from '@/lib/i18n'
 import { loadPublic } from '@/lib/public'
-import { roundTime } from '@/lib/time'
+import { roundTime, warmupRange } from '@/lib/time'
 
 export const metadata: Metadata = { title: 'Schedule' }
 
@@ -29,7 +30,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: { c
           <label htmlFor="p" className="label">{t('filterPlayer')}</label>
           <select id="p" name="p" defaultValue={pid ?? ''} className="input">
             <option value="">{t('allPlayers')}</option>
-            {players.map((p) => <option key={p.id} value={p.id}>{p.nickname}</option>)}
+            {players.map((p) => <option key={p.id} value={p.id}>{withGrade(p.nickname, p.grade)}</option>)}
           </select>
         </div>
         <button className="btn-primary" type="submit">{t('filter')}</button>
@@ -37,6 +38,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: { c
       <p className="mb-5">
         <Link href={`/schedule/print?c=${comp.id}`} className="btn-ghost" data-testid="print-link">{t('printSchedule')}</Link>
       </p>
+      <p className="mb-4 rounded-lg border border-mist bg-paper/60 px-4 py-2 text-sm font-semibold text-ink" data-testid="warmup">{t('warmup')} {warmupRange(comp.start_time)} · {t('allCourts')}</p>
       {rounds.length === 0 && <p className="text-sm text-ink/75">{t('noMatches')}</p>}
       {rounds.map((r) => (
         <section key={r} className="mb-6" aria-label={`${t('round')} ${r}`}>

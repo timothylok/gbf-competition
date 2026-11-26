@@ -33,9 +33,10 @@ Rules for GBF casual competitions as the app runs them. Items marked **To confir
 - The draw is built to give as many players as possible their full games, then to use as few "one grade apart", handicap and filler matches as it can.
 - Organisers can edit any match (players, court, round), add matches by hand, or regenerate the draw until play starts. A hand-made or edited match shows an amber warning if the players are more than one grade apart, if it breaks the team rule, or if the match type does not fit.
 
-## Time limit and end time
+## Warm-up, time limit and end time
 
-- Every competition has a start time and an **end time** (default start + 5 hours). The draw stops at the last round that ends by the end time, and by the "Time limit (hours)" on the Schedule tab, whichever is earlier.
+- **No match is played in the first 15 minutes.** From the start time (for example 09:00 to 09:15) every court is for warm-up, and round 1 starts after it. The schedule shows the warm-up for all courts.
+- Every competition has a start time and an **end time** (default start + 5 hours, warm-up included). The draw stops at the last round that ends by the end time, and by the "Time limit (hours)" on the Schedule tab, whichever is earlier. With a 09:00 start and 15-minute matches that is 19 rounds, the last ending at 14:00.
 - If the time is too short for everyone to reach the maximum, the draw still goes ahead and some players get fewer games. The Schedule tab then says so.
 - A hand-made or edited match in a round that would end after the end time is refused.
 - The admin pages show each round's start, end and duration, and when the competition ends.
@@ -102,5 +103,6 @@ A head start evens up a match when one side is made up of women and the other of
 
 ## Fair play
 
-- Players use nicknames, which are shown publicly. The schedule shows each nickname with the grade letter, for example `Alex - (C)`.
+- Players use nicknames, which are shown publicly. Every page shows each nickname with the grade letter, for example `Alex - (C)`.
+- Every page carries the footer: all rights reserved by Grand Badminton Family, no information or data may be copied, used or published without its approval, and the credit "Developed by Tim Lok".
 - Be on your court when your round is called, so the schedule stays on time.

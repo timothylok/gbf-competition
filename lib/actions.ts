@@ -9,7 +9,7 @@ import { back, parsePlayerLines } from './action-utils'
 import { parseGrade } from './grade'
 import { generatePlan } from './scheduler'
 import { teamOf } from './team'
-import { maxRoundsFor } from './time'
+import { maxRoundsFor, roundsIn } from './time'
 import type { Key } from './i18n'
 
 const int = z.coerce.number().int()
@@ -219,7 +219,7 @@ export async function generateSchedule(fd: FormData) {
   if (players.length < 4) back(path, 'err', 'players')
 
   // The draw stops at the last round that fits: both the hours typed in the form and the competition's end time apply.
-  const maxRounds = Math.min(Math.floor((r.data.hours * 60) / comps[0].slot_minutes), maxRoundsFor(comps[0]))
+  const maxRounds = Math.min(roundsIn(r.data.hours * 60, comps[0].slot_minutes), maxRoundsFor(comps[0]))
   if (maxRounds < 1) back(path, 'err', 'toolong')
   const plan = generatePlan(players, comps[0].courts, { maxGames: r.data.maxGames, maxRounds }, r.data.seed)
   if (plan.matches.length === 0) back(path, 'err', 'players')

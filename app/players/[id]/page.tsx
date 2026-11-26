@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { MatchCard } from '@/components/MatchCard'
+import { withGrade } from '@/lib/grade'
 import { getT } from '@/lib/i18n'
 import { loadPublic } from '@/lib/public'
 import { standings } from '@/lib/standings'
@@ -25,7 +26,7 @@ export default async function PlayerPage({ params, searchParams }: { params: { i
   return (
     <>
       <p className="mb-2 text-sm"><Link href={`/?c=${comp.id}`} className="text-ink/75 hover:underline">← {comp.name}</Link></p>
-      <h1 className="mb-1 text-2xl font-bold text-ink">{player.nickname}</h1>
+      <h1 className="mb-1 text-2xl font-bold text-ink">{withGrade(player.nickname, player.grade)}</h1>
       <p className="mb-4 text-sm text-ink/75">
         {t('record')}: {rec ? `${rec.won}${t('won')} ${rec.drawn}${t('drawn')} ${rec.lost}${t('lost')} · ${rec.pts} ${t('points')} · ${rec.diff > 0 ? '+' : ''}${rec.diff}` : '—'}
       </p>

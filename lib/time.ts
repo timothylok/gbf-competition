@@ -1,3 +1,6 @@
+/** Nothing is played in the first 15 minutes: warm-up on every court. Round 1 starts after it. */
+export const WARMUP_MINUTES = 15
+
 /** Default time limit: a competition must finish within this many hours of its start time. */
 export const DEFAULT_HOURS = 5
 
@@ -17,25 +20,32 @@ export function endTimeOf(c: { start_time: string; end_time?: string | null }): 
   return c.end_time ?? toHHMM(toMinutes(c.start_time) + DEFAULT_HOURS * 60)
 }
 
+/** How many rounds fit in `minutes` minutes from the start time, after the warm-up. */
+export function roundsIn(minutes: number, slotMinutes: number): number {
+  return Math.max(0, Math.floor((minutes - WARMUP_MINUTES) / slotMinutes))
+}
+
 /** How many rounds fit before the latest finish. */
 export function maxRoundsFor(c: { start_time: string; slot_minutes: number; end_time?: string | null }): number {
-  return Math.max(0, Math.floor(limitMinutes(c) / c.slot_minutes))
+  return roundsIn(limitMinutes(c), c.slot_minutes)
 }
 
 /** How many rounds fit in `hours` hours. */
 export function maxRounds(slotMinutes: number, hours: number = DEFAULT_HOURS): number {
-  return Math.floor((hours * 60) / slotMinutes)
+  return roundsIn(hours * 60, slotMinutes)
 }
 
-/** Start and end of a round, e.g. ("09:00", 15, 1) -> "09:00–09:15". Matches end when their slot ends. */
+/** The warm-up slot, e.g. ("09:00") -> "09:00–09:15". */
+export function warmupRange(start: string): string {
+  return `${toHHMM(toMinutes(start))}–${toHHMM(toMinutes(start) + WARMUP_MINUTES)}`
+}
+
+/** Start and end of a round, e.g. ("09:00", 15, 1) -> "09:15–09:30". Matches end when their slot ends. */
 export function roundRange(start: string, slotMinutes: number, round: number): string {
   return `${roundTime(start, slotMinutes, round)}–${roundTime(start, slotMinutes, round + 1)}`
 }
 
-/** Start time of a 1-based round, e.g. ("09:00", 15, 3) -> "09:30". */
+/** Start time of a 1-based round, after the warm-up, e.g. ("09:00", 15, 3) -> "09:45". */
 export function roundTime(start: string, slotMinutes: number, round: number): string {
-  const [h, m] = start.split(':').map(Number)
-  const total = h * 60 + m + (round - 1) * slotMinutes
-  const hh = Math.floor(total / 60) % 24
-  return `${String(hh).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+  return toHHMM(toMinutes(start) + WARMUP_MINUTES + (round - 1) * slotMinutes)
 }

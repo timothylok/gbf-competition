@@ -2,7 +2,7 @@ import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { writeFileSync } from 'node:fs'
 import type { Browser, Page } from 'puppeteer-core'
-import { addPlayers, banner, cards, closeBrowser, createCompetition, fetchHtml, generate, go, launch, login, newPage, roster, setStatus, submit } from './helpers'
+import { addPlayers, banner, cards, closeBrowser, createCompetition, fetchHtml, generate, go, launch, listMatches, login, newPage, roster, setScore, setStatus, submit } from './helpers'
 
 /**
  * The game rules end to end, on the real pages: Philippines (-F) vs the rest, same type and same grade
@@ -50,7 +50,7 @@ async function readSchedule(page: Page, comp: number): Promise<Row[]> {
           round,
           court: Number((spans[0]?.textContent ?? '').replace(/\D/g, '')),
           kind: (spans[1]?.textContent ?? '').trim(),
-          names: (spans[2]?.textContent ?? '').trim().split(/\s*\/\s*|\s+vs\s+/).map((x) => x.trim()).filter(Boolean),
+          names: (spans[2]?.textContent ?? '').trim().split(/\s*\/\s*|\s+vs\s+/).map((x) => x.trim()).filter(Boolean).map((x) => x.replace(/ - \([A-I]\)$/, '')),
           headStart: spans.map((x) => x.textContent?.trim() ?? '').find((x) => /^Women start/.test(x)) ?? null,
           warnings: [...li.querySelectorAll('span[title]')].map((x) => x.getAttribute('title') ?? ''),
         }
@@ -133,13 +133,13 @@ describe(`game rules: Philippines vs the rest, grades, handicap (${N} players, $
     assert.match(text, new RegExp(`${N} players \\(27 men, ${WOMEN} women; Philippines 21, Rest 25\\)`))
     assert.match(text, /up to 69 matches \(63 \+ 6 same-team filler\)/)
     assert.match(text, /14 rounds/)
-    assert.match(text, /estimated finish 12:30/)
+    assert.match(text, /estimated finish 12:45/) // 09:00 + 15 min warm-up + 14 rounds
     assert.match(text, /fits the time limit/)
   })
 
   it('the draw fits the courts and the 5 hours, with no warnings', () => {
     const rounds = Math.max(...rows.map((r) => r.round))
-    assert(rounds <= (HOURS * 60) / 15, `${rounds} rounds must fit ${HOURS} hours of 15-minute rounds`)
+    assert(rounds <= (HOURS * 60 - 15) / 15, `${rounds} rounds must fit ${HOURS} hours after the 15-minute warm-up`)
     assert(rows.length >= 66 && rows.length <= 69, `${rows.length} matches (69 when everyone plays 6)`)
     for (const r of new Set(rows.map((x) => x.round))) {
       const inRound = rows.filter((x) => x.round === r)
@@ -233,9 +233,43 @@ describe(`game rules: Philippines vs the rest, grades, handicap (${N} players, $
     assert(cards(html).some((c) => /Women's doubles/.test(c)), "women's doubles cards are labelled")
   })
 
+  it('every portal page shows grades after the nickname, like the printout', async () => {
+    const GRADED = /\b([PR][MW]\d\d(?:-F)?) - \(([A-D])\)/g
+    const NAMES = /\b[PR][MW]\d\d(?:-F)?\b/g
+    // Visible text only: Next.js streams page data in <script> chunks that can split a nickname from its grade.
+    const check = (raw: string, label: string) => {
+      const html = raw.replace(/<script[\s\S]*?<\/script>/g, '')
+      const graded = [...html.matchAll(GRADED)]
+      assert(graded.length > 0, `${label}: no graded names`)
+      const bare = [...html.matchAll(NAMES)].filter((m) => !html.slice(m.index! + m[0].length).startsWith(' - ('))
+      assert.equal(bare.length, 0, `${label}: a nickname without its grade: ${bare.slice(0, 3).map((m) => html.slice(Math.max(0, m.index! - 60), m.index! + 40)).join(' || ')}`)
+      for (const [, name, letter] of graded) assert.equal(letter, p(name).letter, `${label}: ${name} shown with grade ${letter}`)
+    }
+    // one finished match so the standings have rows
+    const first = (await listMatches(page, comp)).find((m) => m.status === 'Scheduled')!
+    await setScore(page, comp, first.id, 'done', '15', '10')
+
+    check((await fetchHtml(`/?c=${comp}`)).html, 'Live page')
+    const sched = (await fetchHtml(`/schedule?c=${comp}`)).html
+    check(sched, 'Schedule page (cards and the player filter)')
+    check((await fetchHtml(`/standings?c=${comp}`)).html, 'Standings page')
+    const playerId = sched.match(/href="\/players\/(\d+)\?c=/)![1]
+    const player = (await fetchHtml(`/players/${playerId}?c=${comp}`)).html
+    check(player, 'Player page')
+    assert.match(player.match(/<h1[^>]*>([^<]*)<\/h1>/)![1], /^[PR][MW]\d\d(-F)? - \([A-D]\)$/, 'player page heading')
+
+    // admin pages (signed in): the match lines show them too
+    await go(page, `/admin/c/${comp}/scores`)
+    const scoreNames = await page.$$eval('p.flex-1', (els) => els.flatMap((e) => (e as HTMLElement).innerText.split('\n').map((x) => x.trim()).filter(Boolean)))
+    assert(scoreNames.length > 0 && scoreNames.every((n) => /^[PR][MW]\d\d(-F)? - \([A-D]\)$/.test(n)), 'score entry cards show grades')
+    await go(page, `/admin/c/${comp}/schedule`)
+    const schedNames = await page.$$eval('li > span.flex-1', (els) => els.map((e) => e.textContent ?? ''))
+    assert(schedNames.length > 0 && schedNames.every((t) => t.split(/ \/ | vs /).every((n) => /^[PR][MW]\d\d(-F)? - \([A-D]\)$/.test(n.trim()))), 'admin schedule shows grades')
+  })
+
   it('the admin pages show when the competition ends, and no match ends after start + 5 hours', async () => {
     const rounds = Math.max(...rows.map((r) => r.round))
-    const total = 9 * 60 + rounds * 15
+    const total = 9 * 60 + 15 + rounds * 15 // 15-minute warm-up first
     const end = `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
     assert(total <= 9 * 60 + HOURS * 60, `last match ends ${end}, after the ${HOURS}-hour limit (14:00)`)
     await go(page, `/admin/c/${comp}`)
@@ -243,18 +277,19 @@ describe(`game rules: Philippines vs the rest, grades, handicap (${N} players, $
     await go(page, `/admin/c/${comp}/schedule`)
     const text = await page.evaluate(() => document.body.innerText)
     assert.match(text, new RegExp(`Competition ends ${end}`))
-    assert.match(text, /Round 1 · 09:00–09:15 \(15 min\)/i) // headings are shown in capitals
+    assert.match(text, /Round 1 · 09:15–09:30 \(15 min\)/i) // headings are shown in capitals
+    assert.match(await page.$eval('[data-testid=warmup]', (e) => e.textContent ?? ''), /Warm-up 09:00–09:15 · all courts, no matches/)
   })
 
   it('refuses a hand-made or edited match that would end after the time limit', async () => {
     const lineup = { a1: pick('C', 'F', 'M', 1), a2: pick('C', 'F', 'M', 2), b1: pick('C', 'R', 'M', 1), b2: pick('C', 'R', 'M', 2) }
     const before = (await readSchedule(page, comp)).length
-    await addMatchByHand(lineup, '21', '1', 'MD') // round 21 = 14:00-14:15, after the 14:00 limit
+    await addMatchByHand(lineup, '20', '1', 'MD') // round 20 = 14:00-14:15, after the 14:00 limit
     assert.match((await banner(page)) ?? '', /would end after the time limit/)
     assert.equal((await readSchedule(page, comp)).length, before, 'nothing was created')
-    await addMatchByHand(lineup, '20', '1', 'MD') // round 20 = 13:45-14:00, ends exactly at the limit
+    await addMatchByHand(lineup, '19', '1', 'MD') // round 19 = 13:45-14:00, ends exactly at the limit
     assert.match((await banner(page)) ?? '', /Created/)
-    const last = (await readSchedule(page, comp)).find((r) => r.round === 20)!
+    const last = (await readSchedule(page, comp)).find((r) => r.round === 19)!
     assert.equal(last.warnings.length, 0, 'ending exactly at the limit is fine, and a clean cross-team C-grade match has no warning')
     // editing a match into a late round is refused too
     const editHref = await page.$$eval('a', (as) => as.filter((a) => a.textContent?.trim() === 'Edit').map((a) => (a as HTMLAnchorElement).href).pop()!)
@@ -298,7 +333,9 @@ describe(`game rules: Philippines vs the rest, grades, handicap (${N} players, $
     assert.equal(byTime.split('\n').filter((l) => / vs /.test(l)).length, total)
     const heads = byTime.split('\n').filter((l) => /^\d\d:\d\d–\d\d:\d\d · Round/.test(l)).map((l) => l.slice(0, 11))
     assert.deepEqual([...heads].sort(), heads, 'groups are in time order')
-    assert.match(byTime, /^09:00–09:15 · Round 1 \(5 matches\)/m)
+    assert.match(byTime, /^09:00–09:15 · Warm-up \(all courts, no matches\)/m)
+    assert.match(byTime, /^09:15–09:30 · Round 1 \(5 matches\)/m)
+    assert.equal(byCourt.split('\n').filter((l) => /^09:00–09:15  Warm-up$/.test(l)).length, COURTS, 'every court starts with the warm-up')
     if (process.env.E2E_DUMP_TEXT) writeFileSync(process.env.E2E_DUMP_TEXT, `${byCourt}\n\n=====\n\n${byTime}`)
   })
 
@@ -353,13 +390,13 @@ describe(`game rules: Philippines vs the rest, grades, handicap (${N} players, $
       await go(page, `/admin/c/${small}`)
       await submit(page, [['id', String(small)], ['courts', null]], { end_time: end }, 'Save')
     }
-    // end time 10:00 = 4 rounds of 15 minutes: the draw stops there and some players get fewer games
+    // end time 10:00 = 15 minutes warm-up + 3 rounds of 15 minutes: the draw stops there and some players get fewer games
     await setEnd('10:00')
     assert.match((await banner(page)) ?? '', /Saved/)
     await generate(page, small, { hours: 5, seed: 1 })
     assert.match((await banner(page)) ?? '', /fewer games than planned/)
     const tight = await readSchedule(page, small)
-    assert(tight.length > 0 && Math.max(...tight.map((r) => r.round)) <= 4, 'no round ends after 10:00')
+    assert(tight.length > 0 && Math.max(...tight.map((r) => r.round)) <= 3, 'no round ends after 10:00')
     // an end time before the start time is rejected
     await setEnd('08:00')
     assert.match((await banner(page)) ?? '', /invalid/i)
@@ -368,6 +405,6 @@ describe(`game rules: Philippines vs the rest, grades, handicap (${N} players, $
     await generate(page, small, { hours: 5, seed: 1 })
     const made = await readSchedule(page, small)
     assert(made.length > tight.length, 'a later end time allows more matches')
-    assert(Math.max(...made.map((r) => r.round)) <= 12, 'no round ends after 12:00 (12 rounds from 09:00)')
+    assert(Math.max(...made.map((r) => r.round)) <= 11, 'no round ends after 12:00 (11 rounds after the warm-up)')
   })
 })

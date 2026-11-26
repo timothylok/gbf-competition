@@ -1,7 +1,7 @@
 import { withGrade } from './grade'
 import { headStartOf, matchKind } from './handicap'
 import type { T } from './i18n'
-import { roundRange } from './time'
+import { roundRange, warmupRange } from './time'
 import type { Competition, Match, Player } from './types'
 
 export interface ScheduleRow {
@@ -18,6 +18,8 @@ export interface ScheduleRow {
   sideB: string
   /** "Women start +4" for handicap matches. */
   note: string
+  /** The warm-up line: no match is played in the first 15 minutes. */
+  warmup?: boolean
 }
 export interface ScheduleGroup {
   title: string
@@ -50,12 +52,15 @@ export function scheduleGroups(comp: Competition, players: Player[], matches: Ma
   }
   const live = matches.filter((m) => m.status !== 'cancelled')
   const groups: ScheduleGroup[] = []
+  const warm = warmupRange(comp.start_time)
   if (by === 'court') {
     for (const c of [...new Set(live.map((m) => m.court))].sort((a, b) => a - b)) {
       const ms = live.filter((m) => m.court === c).sort((a, b) => a.round - b.round)
-      groups.push({ title: `${t('court')} ${c} (${ms.length} ${t('textMatches')})`, rows: ms.map(toRow) })
+      const warmRow: ScheduleRow = { when: warm, round: 0, court: c, courtLabel: `${t('court')} ${c}`, kind: t('warmup'), sideA: '', sideB: '', note: '', warmup: true }
+      groups.push({ title: `${t('court')} ${c} (${ms.length} ${t('textMatches')})`, rows: [warmRow, ...ms.map(toRow)] })
     }
   } else {
+    groups.push({ title: `${warm} · ${t('warmup')} (${t('allCourts')})`, rows: [] })
     for (const r of [...new Set(live.map((m) => m.round))].sort((a, b) => a - b)) {
       const ms = live.filter((m) => m.round === r).sort((a, b) => a.court - b.court)
       groups.push({ title: `${roundRange(comp.start_time, comp.slot_minutes, r)} · ${t('round')} ${r} (${ms.length} ${t('textMatches')})`, rows: ms.map(toRow) })
@@ -70,12 +75,16 @@ export function groupsToText(comp: Competition, groups: ScheduleGroup[], by: 'co
   for (const g of groups) {
     lines.push(g.title)
     for (const r of g.rows) {
+      if (r.warmup) {
+        lines.push(`${r.when}  ${r.kind}`)
+        continue
+      }
       const lead = by === 'court' ? r.when : r.courtLabel
       lines.push(`${lead}  ${r.kind}: ${r.sideA} vs ${r.sideB}${r.note ? ` [${r.note}]` : ''}`)
     }
     lines.push('')
   }
-  if (groups.length === 0) lines.push(empty)
+  if (groups.every((g) => g.rows.every((r) => r.warmup))) lines.push(empty)
   return lines.join('\n').trimEnd()
 }
 

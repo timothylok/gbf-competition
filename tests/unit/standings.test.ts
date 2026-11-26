@@ -54,10 +54,10 @@ describe('standings', () => {
 })
 
 describe('roundTime', () => {
-  it('adds the slot length per round', () => {
-    assert.equal(roundTime('09:00', 15, 1), '09:00')
-    assert.equal(roundTime('09:00', 15, 3), '09:30')
-    assert.equal(roundTime('09:00', 15, 17), '13:00')
+  it('starts round 1 after the 15-minute warm-up, then adds the slot length per round', () => {
+    assert.equal(roundTime('09:00', 15, 1), '09:15')
+    assert.equal(roundTime('09:00', 15, 3), '09:45')
+    assert.equal(roundTime('09:00', 15, 17), '13:15')
   })
-  it('rolls over midnight', () => assert.equal(roundTime('23:45', 15, 2), '00:00'))
+  it('rolls over midnight', () => assert.equal(roundTime('23:45', 15, 2), '00:15'))
 })

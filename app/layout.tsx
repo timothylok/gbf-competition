@@ -15,6 +15,7 @@ export const viewport: Viewport = { width: 'device-width', initialScale: 1, them
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const { t, lang } = getT()
+  const year = new Date().getFullYear()
   return (
     <html lang={lang === 'zh' ? 'zh-HK' : 'en-NZ'}>
       <body className="min-h-screen">
@@ -44,7 +45,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
         </header>
         <main className="mx-auto max-w-4xl px-4 py-6">{children}</main>
-        <footer className="mx-auto max-w-4xl px-4 pb-10 text-xs text-ink/75 print:hidden">Grand Badminton Family</footer>
+        <footer className="mx-auto max-w-4xl space-y-1 px-4 pb-10 text-xs text-ink/75">
+          <p className="font-semibold">© {year} {t('footerRights')}</p>
+          <p>{t('footerClause')}</p>
+          <p>{t('footerCredit')}</p>
+        </footer>
       </body>
     </html>
   )

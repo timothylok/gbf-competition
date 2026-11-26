@@ -77,13 +77,16 @@ Full rules are in `docs/game-rules.md`. In short:
 If the time is too short for everyone to reach the maximum, the draw is still made and some players get fewer games; the
 Schedule tab says so. The plan line on the Schedule tab is a quick upper bound ("up to N matches"); the real draw can be a little lower.
 
+No match is played in the first 15 minutes (warm-up on every court, shown on the schedule), so round 1 starts at 09:15 for a
+09:00 start, and 19 rounds fit in the default 5 hours.
+
 Example (5 courts, 15-minute matches, 6 games each, 09:00 start):
 
 | Philippines / Rest | Matches (cross-team + filler) | Rounds | Finish |
 |---|---|---|---|
-| 21 / 25 | 63 + 6 = 69 | 14 | 12:30 |
-| 26 / 25 | 75 + 1 = 76 | 16 | 13:00 |
-| no teams, 64 players | 96 | 20 | 14:00 |
+| 21 / 25 | 63 + 6 = 69 | 14 | 12:45 |
+| 26 / 25 | 75 + 1 = 76 | 16 | 13:15 |
+| no teams, 64 players | up to 96 (95 fit in 19 rounds) | 19 to 20 | 14:00 to 14:15 |
 
 ## Design
 

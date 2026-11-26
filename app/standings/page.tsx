@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { AutoRefresh } from '@/components/AutoRefresh'
 import { CompTabs } from '@/components/CompTabs'
+import { withGrade } from '@/lib/grade'
 import { getT } from '@/lib/i18n'
 import { loadPublic } from '@/lib/public'
 import { standings } from '@/lib/standings'
@@ -55,7 +56,7 @@ export default async function StandingsPage({ searchParams }: { searchParams: { 
                 <tr key={r.player.id} className={r.rank <= 3 ? 'bg-sun/25' : ''}>
                   <td className="px-3 py-2 font-bold">{r.tied ? `T-${r.rank}` : r.rank}</td>
                   <td className="px-3 py-2 font-medium">
-                    <Link href={`/players/${r.player.id}?c=${comp.id}`} className="inline-block py-1.5 hover:underline">{r.player.nickname}</Link>
+                    <Link href={`/players/${r.player.id}?c=${comp.id}`} className="inline-block py-1.5 hover:underline">{withGrade(r.player.nickname, r.player.grade)}</Link>
                   </td>
                   <td className="px-2 py-2 text-right">{r.played}</td>
                   <td className="px-2 py-2 text-right">{r.won}</td>
