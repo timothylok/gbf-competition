@@ -182,6 +182,36 @@ describe('layout: phone width, accessibility, colours', () => {
       await visit(`/admin/c/${comp}/scores`)
       assert.equal(await phone.$eval('nav[aria-label="Competition sections"] [aria-current=page]', (e) => e.textContent), 'Scores')
     })
+    it('shows the open public tab as a solid dark pill with a marker, and the other tabs as light buttons', async () => {
+      for (const [path, open] of [[`/?c=${comp}`, 'Live'], [`/schedule?c=${comp}`, 'Schedule'], [`/standings?c=${comp}`, 'Standings']] as const) {
+        await visit(path)
+        const tabs = await phone.$$eval('nav[aria-label=Sections] a', (els) =>
+          els.map((e) => {
+            const cs = getComputedStyle(e)
+            const r = e.getBoundingClientRect()
+            return { text: e.textContent ?? '', bg: cs.backgroundColor, color: cs.color, border: cs.borderTopWidth, height: Math.round(r.height), width: Math.round(r.width), dot: !!e.querySelector('span[aria-hidden]'), current: e.getAttribute('aria-current') }
+          }),
+        )
+        assert.equal(tabs.length, 3)
+        for (const t of tabs) {
+          assert(t.height >= 44, `${t.text}: tap target ${t.height}px`)
+          assert.equal(t.border, '2px', `${t.text}: a visible border so it looks like a button`)
+          if (t.text === open) {
+            assert.equal(t.bg, 'rgb(16, 24, 32)', `${path}: the open tab is solid Black 6 C`)
+            assert.equal(t.color, 'rgb(244, 245, 240)', 'with Bright White text')
+            assert.equal(t.current, 'page')
+            assert(t.dot, 'and a marker dot, so it is not only a colour')
+          } else {
+            assert.equal(t.bg, 'rgb(244, 245, 240)', `${t.text}: a light button`)
+            assert.equal(t.color, 'rgb(16, 24, 32)')
+            assert.equal(t.current, null)
+            assert(!t.dot)
+          }
+        }
+        const widths = tabs.map((t) => t.width)
+        assert(Math.max(...widths) - Math.min(...widths) <= 2, `three equal-width buttons across the phone: ${widths}`)
+      }
+    })
     it('gives data tables a caption and header scopes', async () => {
       await visit(`/standings?c=${comp}`)
       const r = await phone.evaluate(() => ({ caption: !!document.querySelector('table caption'), scoped: [...document.querySelectorAll('th')].every((t) => t.getAttribute('scope') === 'col') }))

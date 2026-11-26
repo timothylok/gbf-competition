@@ -25,17 +25,25 @@ export function CompTabs({ comp, active }: { comp: Competition; active: 'live' |
       <p className="mb-3 text-sm text-ink/75">
         {comp.event_date} · {comp.start_time} · {comp.courts} {t('courtsShort')} · {comp.slot_minutes} min
       </p>
-      <nav aria-label="Sections" className="flex gap-1 border-b border-mist">
-        {tabs.map((tab) => (
-          <Link
-            key={tab.key}
-            href={tab.href}
-            aria-current={tab.key === active ? 'page' : undefined}
-            className={`border-b-2 px-4 py-2 text-sm font-semibold ${tab.key === active ? 'border-sun text-ink' : 'border-transparent text-ink/75 hover:text-ink'}`}
-          >
-            {tab.label}
-          </Link>
-        ))}
+      {/* Pill buttons: the open tab is solid dark with a yellow dot; the others look like buttons you can press. */}
+      <nav aria-label="Sections" className="grid grid-cols-3 gap-2 sm:flex">
+        {tabs.map((tab) => {
+          const open = tab.key === active
+          return (
+            <Link
+              key={tab.key}
+              href={tab.href}
+              aria-current={open ? 'page' : undefined}
+              data-open={open ? 'true' : 'false'}
+              className={`flex min-h-[44px] items-center justify-center gap-2 rounded-xl border-2 px-4 py-2 text-sm font-bold transition-colors sm:min-w-[8.5rem] ${
+                open ? 'border-ink bg-ink text-paper shadow-md' : 'border-mist bg-paper text-ink hover:border-ink hover:bg-cloud'
+              }`}
+            >
+              {open && <span aria-hidden className="h-2 w-2 rounded-full bg-sun" />}
+              {tab.label}
+            </Link>
+          )
+        })}
       </nav>
       <div className="mt-3"><EventLegend /></div>
     </div>
