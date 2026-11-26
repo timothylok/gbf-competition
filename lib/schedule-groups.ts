@@ -1,8 +1,14 @@
-import { withGrade } from './grade'
+import { gradeToLetter, withGrade } from './grade'
 import { headStartOf, matchKind } from './handicap'
 import type { T } from './i18n'
 import { roundRange, warmupRange } from './time'
-import type { Competition, Match, Player } from './types'
+import type { Competition, Match, MatchKind, Player } from './types'
+
+/** One player on a side: the nickname and the grade letter ("" when there is none). */
+export interface SidePlayer {
+  name: string
+  grade: string
+}
 
 export interface ScheduleRow {
   /** "09:00–09:15" */
@@ -13,9 +19,14 @@ export interface ScheduleRow {
   courtLabel: string
   /** Men's doubles / Mixed doubles / Handicap doubles */
   kind: string
+  /** Which kind of match: used for colours. */
+  kindKey?: MatchKind
   /** Each side as "Alex - (C) / Sam - (B)". */
   sideA: string
   sideB: string
+  /** The same players as data, for the PDF. */
+  a?: SidePlayer[]
+  b?: SidePlayer[]
   /** "Women start +4" for handicap matches. */
   note: string
   /** The warm-up line: no match is played in the first 15 minutes. */
@@ -37,6 +48,10 @@ export function scheduleGroups(comp: Competition, players: Player[], matches: Ma
     const p = byId.get(id)
     return p ? withGrade(p.nickname, p.grade) : '?'
   }
+  const person = (id: number): SidePlayer => {
+    const p = byId.get(id)
+    return p ? { name: p.nickname, grade: gradeToLetter(p.grade) } : { name: '?', grade: '' }
+  }
   const toRow = (m: Match): ScheduleRow => {
     const hs = headStartOf(m, info)
     return {
@@ -45,6 +60,9 @@ export function scheduleGroups(comp: Competition, players: Player[], matches: Ma
       court: m.court,
       courtLabel: `${t('court')} ${m.court}`,
       kind: t(matchKind(m, info)),
+      kindKey: matchKind(m, info),
+      a: [person(m.a1), person(m.a2)],
+      b: [person(m.b1), person(m.b2)],
       sideA: `${label(m.a1)} / ${label(m.a2)}`,
       sideB: `${label(m.b1)} / ${label(m.b2)}`,
       note: hs ? (hs.covered ? `${t('headStart')}${hs.points}` : t('headStartTbc')) : '',

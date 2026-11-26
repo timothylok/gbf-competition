@@ -38,7 +38,7 @@ export default async function LivePage({ searchParams }: { searchParams: { c?: s
       {comp.status === 'live' && <AutoRefresh />}
       <CompTabs comp={comp} active="live" />
       <p className="mb-5">
-        <Link href={`/schedule/print?c=${comp.id}`} className="btn-ghost" data-testid="print-link">{t('printSchedule')}</Link>
+        <a href={`/schedule/pdf?c=${comp.id}`} className="btn-ghost" data-testid="print-link">{t('printSchedule')}</a>
       </p>
       <Section title={t('nowPlaying')} empty={t('nothingLive')} items={live} />
       <Section title={t('upNext')} empty={t('nothingNext')} items={next} />

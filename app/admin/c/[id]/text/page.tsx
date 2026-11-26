@@ -33,9 +33,9 @@ export default async function TextSchedule({ params, searchParams }: { params: {
       <div className="mb-3 flex flex-wrap items-center gap-2">
         {tab('court', t('textByCourt'))}
         {tab('time', t('textByTime'))}
-        <Link href={`/schedule/print?c=${id}&by=${by}`} className="rounded-lg border border-mist px-4 py-2 text-sm font-semibold text-ink hover:bg-mist/40">
+        <a href={`/schedule/pdf?c=${id}&by=${by}`} className="rounded-lg border border-mist px-4 py-2 text-sm font-semibold text-ink hover:bg-mist/40">
           {t('printSchedule')}
-        </Link>
+        </a>
         <span className="ml-auto"><CopyButton targetId="schedule-text" label={t('textCopy')} doneLabel={t('textCopied')} /></span>
       </div>
       <label htmlFor="schedule-text" className="sr-only">{t('tabText')}</label>

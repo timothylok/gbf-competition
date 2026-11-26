@@ -90,6 +90,16 @@ Example (5 courts, 15-minute matches, 6 games each, 09:00 start):
 | 26 / 25 | 75 + 1 = 76 | 16 | 13:15 |
 | no teams, 64 players | up to 96 (95 fit in 19 rounds) | 19 to 20 | 14:00 to 14:15 |
 
+## Schedule PDF
+
+The **Print schedule (PDF)** button (Live and Schedule pages, and the admin Copy text tab) opens the schedule as an A4 PDF in the
+same tab, so the browser's Back button returns to the portal: one court per page (or `?by=time` for one round after another),
+coloured event chips, each player with a grade badge, the warm-up row, head start notes, and the rights footer on every page.
+It is built on the server (`app/schedule/pdf/route.ts`, `lib/schedule-pdf.ts` with pdf-lib), follows the same visibility as the
+public pages (a draft is for admins only) and the language switch, and takes well under a second. The old `/schedule/print`
+address redirects to it. Fonts are Noto Sans SC (SIL OFL) in `assets/fonts/`, so Chinese nicknames print; each PDF embeds only the
+characters it uses. If you add Chinese text to `lib/i18n.ts`, a unit test tells you to rebuild the fonts with `scripts/make-pdf-font.py`.
+
 ## Design
 
 - **Pantone palette only.** Men's doubles panels are PANTONE 2995 C (`#00A9E0`), mixed doubles are PANTONE 812 C (`#FF5FA2`,

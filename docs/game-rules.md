@@ -108,7 +108,7 @@ A head start evens up a match when one side is made up of women and the other of
 **How it counts**
 
 - Head start points are part of the score. They count in the result, points scored and points difference like any other points.
-- The app shows the head start on the match (for example "Women start +4") on the schedule, score-entry, print and copy-text screens, with its own coral colour. It does not add the points itself: the scorekeeper includes them when entering the score.
+- The app shows the head start on the match (for example "Women start +4") on the schedule, score-entry, copy-text and PDF screens, with its own coral colour. It does not add the points itself: the scorekeeper includes them when entering the score.
 - Handicap and women's doubles matches are stored as mixed doubles and appear on screen as **Handicap doubles** (coral) and **Women's doubles** (lilac). They are counted under the Mixed tab of the standings.
 
 **To confirm:** the head start when the women's side is a grade or more *stronger* than the men's, or two or more grades lower, and how to round when the two grades average exactly halfway.

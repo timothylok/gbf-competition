@@ -1,8 +1,9 @@
 import { describe, it, before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { writeFileSync } from 'node:fs'
+import { PDFDocument } from 'pdf-lib'
 import type { Browser, Page } from 'puppeteer-core'
-import { addPlayers, banner, cards, closeBrowser, createCompetition, fetchHtml, generate, go, launch, listMatches, login, newPage, roster, setScore, setStatus, submit } from './helpers'
+import { BASE, addPlayers, banner, cards, closeBrowser, createCompetition, fetchHtml, generate, go, launch, listMatches, login, newPage, roster, setScore, setStatus, submit } from './helpers'
 
 /**
  * The game rules end to end, on the real pages: Philippines (-F) vs the rest, same type and same grade
@@ -233,7 +234,7 @@ describe(`game rules: Philippines vs the rest, grades, handicap (${N} players, $
     assert(cards(html).some((c) => /Women's doubles/.test(c)), "women's doubles cards are labelled")
   })
 
-  it('every portal page shows grades after the nickname, like the printout', async () => {
+  it('every portal page shows grades after the nickname, like the PDF', async () => {
     const GRADED = /\b([PR][MW]\d\d(?:-F)?) - \(([A-D])\)/g
     const NAMES = /\b[PR][MW]\d\d(?:-F)?\b/g
     // Visible text only: Next.js streams page data in <script> chunks that can split a nickname from its grade.
@@ -339,44 +340,60 @@ describe(`game rules: Philippines vs the rest, grades, handicap (${N} players, $
     if (process.env.E2E_DUMP_TEXT) writeFileSync(process.env.E2E_DUMP_TEXT, `${byCourt}\n\n=====\n\n${byTime}`)
   })
 
-  it('the public print schedule is plain, has a Back button, and shows each player as "nickname - (G)"', async () => {
-    const total = (await readSchedule(page, comp)).length
+  it('the Print schedule button opens a PDF: valid, one court per page, small, in both languages; the old printout link redirects to it', async () => {
     const sched = (await fetchHtml(`/schedule?c=${comp}`)).html
-    assert.match(sched, new RegExp(`href="/schedule/print\\?c=${comp}"`), 'public schedule has a Print schedule link')
+    assert.match(sched, new RegExp(`href="/schedule/pdf\\?c=${comp}"`), 'public schedule has the Print schedule (PDF) button')
 
-    const res = await fetchHtml(`/schedule/print?c=${comp}`)
+    const res = await fetch(`${BASE}/schedule/pdf?c=${comp}`)
     assert.equal(res.status, 200)
-    const back = res.html.match(/<a[^>]*data-testid="back"[^>]*>/)?.[0] ?? ''
-    assert.match(back, new RegExp(`href="/schedule[?]c=${comp}"`), 'Back button goes to the public schedule')
-    assert.equal((res.html.match(/<tr class="border-b border-mist/g) ?? []).length, total, 'every match is a table row')
-    const all = [...res.html.matchAll(/\b[PR][MW]\d\d(?:-F)?\b/g)].map((m) => m[0])
-    const graded = [...res.html.matchAll(/\b([PR][MW]\d\d(?:-F)?) - \(([A-D])\)/g)]
-    assert(graded.length >= total * 4, 'all four players of every match carry a grade')
-    for (const [, name, letter] of graded) assert.equal(letter, p(name).letter, `${name} shown with grade ${letter}`)
-    assert.equal(all.length, graded.length, 'no nickname without its grade in the table')
-    assert.match(res.html, /Women start \+[46]/)
-    assert.match(res.html, /Print<\/button>/)
+    assert.equal(res.headers.get('content-type'), 'application/pdf')
+    assert.match(res.headers.get('content-disposition') ?? '', /^inline; filename="GBF-schedule-\d{4}-\d\d-\d\d\.pdf"; filename\*=UTF-8''/)
+    assert.equal(res.headers.get('cache-control'), 'no-store')
+    const bytes = new Uint8Array(await res.arrayBuffer())
+    assert.equal(Buffer.from(bytes.slice(0, 5)).toString(), '%PDF-')
+    assert(bytes.length > 5_000 && bytes.length < 400_000, `${bytes.length} bytes: a schedule PDF is small, not a whole font`)
+    const pdf = await PDFDocument.load(bytes)
+    assert(pdf.getPageCount() >= COURTS, `at least one page per court, got ${pdf.getPageCount()}`)
+    assert.match(pdf.getTitle() ?? '', /^Rules Test · /)
+    if (process.env.E2E_DUMP_PDF) writeFileSync(process.env.E2E_DUMP_PDF, bytes)
 
-    const byCourt = await fetchHtml(`/schedule/print?c=${comp}&by=court`)
-    assert.equal((byCourt.html.match(/<tr class="border-b border-mist/g) ?? []).length, total)
-    assert.equal((byCourt.html.match(/Court \d+ \(\d+ matches\)/g) ?? []).length >= COURTS, true, 'grouped by court')
+    const byTime = await fetch(`${BASE}/schedule/pdf?c=${comp}&by=time`)
+    assert.equal(byTime.status, 200)
+    assert((await PDFDocument.load(new Uint8Array(await byTime.arrayBuffer()))).getPageCount() >= 1, 'the by-time PDF loads')
 
+    // the old plain-HTML printout address now redirects to the PDF
+    const old = await fetchHtml(`/schedule/print?c=${comp}&by=court`)
+    assert([307, 308].includes(old.status), `redirect, got ${old.status}`)
+    assert.match(old.location ?? '', new RegExp(`/schedule/pdf\\?c=${comp}&by=court`))
+
+    // Hong Kong Chinese version: still a valid PDF
+    const zh = await fetch(`${BASE}/schedule/pdf?c=${comp}`, { headers: { cookie: 'lang=zh' } })
+    assert.equal(zh.status, 200)
+    assert.equal(Buffer.from(new Uint8Array(await zh.arrayBuffer()).slice(0, 5)).toString(), '%PDF-')
+
+    // an unknown competition is a 404, not an error page
+    assert.equal((await fetch(`${BASE}/schedule/pdf?c=999999`)).status, 404)
+
+    // the admin Copy text page keeps the "nickname - (G)" pattern, and links to the PDF
     await go(page, `/admin/c/${comp}/text`)
     const text = await page.$eval('[data-testid=schedule-text]', (e) => (e as HTMLTextAreaElement).value)
     assert.match(text, /[PR][MW]\d\d(-F)? - \([A-D]\) \/ [PR][MW]\d\d(-F)? - \([A-D]\) vs /)
+    assert.match(await page.$eval('a[href^="/schedule/pdf"]', (a) => a.getAttribute('href') ?? ''), new RegExp(`^/schedule/pdf\\?c=${comp}&by=court$`))
   })
 
-  it('the public Live page has a Print schedule button whatever the competition status', async () => {
+  it('the public Live page has a Print schedule (PDF) button whatever the competition status; a draft PDF is for admins only', async () => {
     for (const status of ['live', 'finished', 'draft'] as const) {
       await setStatus(page, comp, status)
       await go(page, `/?c=${comp}`) // signed in as admin, so a draft is visible too
       const href = await page.$eval('[data-testid=print-link]', (a) => (a as HTMLAnchorElement).getAttribute('href'))
-      assert.equal(href, `/schedule/print?c=${comp}`, `Print button on the Live page while ${status}`)
+      assert.equal(href, `/schedule/pdf?c=${comp}`, `Print button on the Live page while ${status}`)
+      const loggedOut = await fetch(`${BASE}/schedule/pdf?c=${comp}`)
+      assert.equal(loggedOut.status, status === 'draft' ? 404 : 200, `the PDF for a ${status} competition, logged out`)
+      await loggedOut.arrayBuffer()
     }
     await setStatus(page, comp, 'finished')
     const html = (await fetchHtml(`/?c=${comp}`)).html
     assert.match(html, /data-testid="print-link"/, 'a logged-out visitor sees it on a finished competition')
-    assert.equal((await fetchHtml(`/schedule/print?c=${comp}`)).status, 200)
   })
 
   it('the New competition form has an end time, and a tight end time gives fewer games instead of a late finish', async () => {
