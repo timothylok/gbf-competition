@@ -35,7 +35,7 @@ describe('parseRules (the rules box)', () => {
     const { errors } = parseRules('avoid: Kim\nfrobnicate: x\navoid: grade:Z | Kim\navoid: team:X | Kim\npair: Kim\navoid: Kim, | Lee')
     assert.deepEqual(errors.map((e) => e.line), [1, 2, 3, 4, 5, 6])
     assert.match(errors[0].message, /avoid: <who> \| <who>/)
-    assert.match(errors[1].message, /avoid:" or "pair:/)
+    assert.match(errors[1].message, /avoid:", "pair:" or "upper:/)
     assert.match(errors[2].message, /letter A to I/)
     assert.match(errors[3].message, /team must be F/)
     assert.match(errors[4].message, /pair: <name> \+ <name>/)
@@ -165,5 +165,44 @@ describe('hand-made matches that break a rule', () => {
   })
   it('teamOf stays the single source for the -F suffix', () => {
     assert.equal(teamOf('Kim-F'), 'F')
+  })
+})
+
+describe('Upper C preference', () => {
+  it('parses upper: and marks only C-grade players (others get a warning)', () => {
+    const parsed = parseRules('upper: Sam, Mike M-F, Alex-F')
+    assert.deepEqual(parsed.errors, [])
+    const c = compileRules(parsed, ROSTER)
+    assert.deepEqual([...c.upperC].sort(), [2, 9])
+    assert.equal(c.warnings.length, 1, 'Alex-F is a B player')
+    assert.deepEqual(parseRules('upper:').errors.length, 1)
+  })
+  it('a B player is paired with Upper C partners far more often than with lower C ones', () => {
+    // 3 B men, 4 Upper C men, 5 lower C men (B players have too few B partners, so they must pair with C), one team, men only: B+C partnerships are open to either kind of C.
+    const ps: SchedPlayer[] = []
+    for (let i = 1; i <= 12; i++) ps.push({ id: i, gender: 'M', grade: i <= 3 ? 2 : 3 })
+    const upperC = new Set([4, 5, 6, 7])
+    const count = (rules?: { forbidden: Set<string>; required: [number, number][]; upperC?: Set<number> }) => {
+      let up = 0, low = 0
+      for (let seed = 1; seed <= 6; seed++) {
+        const plan = generatePlan(ps, 3, { maxGames: 4, maxRounds: 12 }, seed, rules)
+        for (const m of plan.matches) for (const [x, y] of [[m.a1, m.a2], [m.b1, m.b2]]) {
+          const b = x <= 3 ? y : y <= 3 ? x : 0
+          if ((x <= 3) !== (y <= 3) && b) upperC.has(b) ? up++ : low++
+        }
+      }
+      return { up, low }
+    }
+    const without = count()
+    const withPref = count({ forbidden: new Set(), required: [], upperC })
+    assert(withPref.up >= withPref.low, `prefers Upper C (${withPref.up} vs ${withPref.low}; without: ${without.up} vs ${without.low})`)
+    assert(withPref.up / Math.max(1, withPref.low) > without.up / Math.max(1, without.low), 'more Upper C than with no preference')
+  })
+  it('a forbidden pair still wins over the preference', () => {
+    const ps: SchedPlayer[] = []
+    for (let i = 1; i <= 12; i++) ps.push({ id: i, gender: 'M', grade: i <= 4 ? 2 : 3 })
+    const forbidden = new Set([1, 2, 3, 4].map((b) => partnerKey(b, 5)))
+    const plan = generatePlan(ps, 3, { maxGames: 4, maxRounds: 12 }, 3, { forbidden, required: [], upperC: new Set([5, 6, 7, 8]) })
+    for (const m of plan.matches) for (const [x, y] of [[m.a1, m.a2], [m.b1, m.b2]]) assert(!forbidden.has(partnerKey(x, y)))
   })
 })

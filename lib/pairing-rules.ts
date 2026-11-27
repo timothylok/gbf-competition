@@ -7,6 +7,8 @@ import { teamOf, type Team } from './team'
  *   avoid: <who> | <who>      the two groups never partner each other (same side of the net)
  *   pair:  <name> + <name>    the two play on the same side in mixed doubles at least once
  *                             (each side is one player: a nickname, optionally `& team:F`)
+ *   upper: <who>              these C-grade players are "Upper C": when a B player is paired with a C player,
+ *                             the draw prefers an Upper C partner (a preference, never a restriction)
  *
  * <who> is a comma-separated list; a player matches if any item matches. An item is a nickname
  * (a trailing -F or -RW is ignored, or give the exact nickname), `grade:B`, or `team:F` / `team:R`.
@@ -20,6 +22,7 @@ type Selector = Term[][]
 export type Rule =
   | { kind: 'avoid'; line: number; a: Selector; b: Selector }
   | { kind: 'pair'; line: number; a: Term[]; b: Term[] }
+  | { kind: 'upper'; line: number; who: Selector }
 
 export interface RuleProblem {
   line: number
@@ -47,6 +50,8 @@ export interface CompiledRules {
   /** Things worth a look but not blocking (a name that matches nobody). */
   warnings: RuleProblem[]
   avoidRules: number
+  /** Players marked Upper C (a soft preference for B+C partnerships). */
+  upperC: Set<number>
 }
 
 /** Order-free key for two player ids. */
@@ -91,13 +96,21 @@ export function parseRules(text: string | null | undefined): ParsedRules {
     const line = i + 1
     const content = raw.replace(/#.*$/, '').trim()
     if (!content) return
-    const m = content.match(/^(avoid|pair)\s*:\s*(.*)$/i)
+    const m = content.match(/^(avoid|pair|upper)\s*:\s*(.*)$/i)
     if (!m) {
-      errors.push({ line, message: 'A rule starts with "avoid:" or "pair:".' })
+      errors.push({ line, message: 'A rule starts with "avoid:", "pair:" or "upper:".' })
       return
     }
     const body = m[2]
-    if (m[1].toLowerCase() === 'avoid') {
+    if (m[1].toLowerCase() === 'upper') {
+      if (!body.trim()) {
+        errors.push({ line, message: 'Write upper: <who>, <who> (the Upper C players).' })
+        return
+      }
+      const before = errors.length
+      const who = parseSelector(body, line, errors)
+      if (errors.length === before && who.length) rules.push({ kind: 'upper', line, who })
+    } else if (m[1].toLowerCase() === 'avoid') {
       const parts = body.split('|')
       if (parts.length !== 2 || !parts[0].trim() || !parts[1].trim()) {
         errors.push({ line, message: 'Write avoid: <who> | <who> (one "|" between two groups).' })
@@ -150,6 +163,7 @@ export function compileRules(parsed: ParsedRules, players: RulePlayer[]): Compil
   const problems: RuleProblem[] = []
   const warnings: RuleProblem[] = []
   let avoidRules = 0
+  const upperC = new Set<number>()
 
   const resolveSelector = (sel: Selector, line: number): RulePlayer[] => {
     const out = new Map<number, RulePlayer>()
@@ -169,7 +183,12 @@ export function compileRules(parsed: ParsedRules, players: RulePlayer[]): Compil
   }
 
   for (const rule of parsed.rules) {
-    if (rule.kind === 'avoid') {
+    if (rule.kind === 'upper') {
+      for (const p of resolveSelector(rule.who, rule.line)) {
+        if (p.grade !== 3) warnings.push({ line: rule.line, message: `${p.nickname} is not a C-grade player, so Upper C has no effect for them.` })
+        else upperC.add(p.id)
+      }
+    } else if (rule.kind === 'avoid') {
       avoidRules++
       const A = resolveSelector(rule.a, rule.line)
       const B = resolveSelector(rule.b, rule.line)
@@ -192,5 +211,5 @@ export function compileRules(parsed: ParsedRules, players: RulePlayer[]): Compil
       required.push([a.id, b.id])
     }
   }
-  return { forbidden, required, problems, warnings, avoidRules }
+  return { forbidden, required, problems, warnings, avoidRules, upperC }
 }

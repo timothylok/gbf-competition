@@ -231,7 +231,7 @@ export async function generateSchedule(fd: FormData) {
   const parsedRules = parseRules(comps[0].pairing_rules)
   const compiledRules = compileRules(parsedRules, rows.map((p) => ({ id: p.id, nickname: p.nickname, gender: p.gender, grade: p.grade })))
   if (parsedRules.errors.length || compiledRules.problems.length) back(path, 'err', 'badrules')
-  const plan = generatePlan(players, comps[0].courts, { maxGames: r.data.maxGames, maxRounds }, r.data.seed, { forbidden: compiledRules.forbidden, required: compiledRules.required })
+  const plan = generatePlan(players, comps[0].courts, { maxGames: r.data.maxGames, maxRounds }, r.data.seed, { forbidden: compiledRules.forbidden, required: compiledRules.required, upperC: compiledRules.upperC })
   if (plan.matches.length === 0) back(path, 'err', 'players')
 
   // One statement: delete the old draw and insert the new one atomically.

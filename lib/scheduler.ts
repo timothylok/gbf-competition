@@ -43,6 +43,8 @@ export interface SchedRules {
   forbidden: Set<string>
   /** One man + one woman of the same team who must partner at least once. */
   required: [number, number][]
+  /** Upper C players: in a B+C partnership the draw prefers these over other C players (a preference only). */
+  upperC?: Set<number>
 }
 export interface Plan {
   matches: PlannedMatch[]
@@ -67,7 +69,11 @@ export interface Plan {
   warnings: string[]
 }
 
+const GRADE_B = 2
+const GRADE_C = 3
 const GRADE_D = 4
+/** Cost of pairing a B player with a lower C player when an Upper C player could do it (tuned against the 25 of a mixed-grade match). */
+const UPPER_COST = 18
 
 /** True when all known grades are within one grade of each other (unknown grades never block). */
 export function gradeSpreadOk(grades: (number | null | undefined)[]): boolean {
@@ -157,6 +163,11 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
     if (i !== undefined && j !== undefined) required.push([i, j])
   }
   const met = required.map(() => false)
+  const upperIdx = new Set<number>()
+  rules?.upperC?.forEach((id) => {
+    const i = idxOf.get(id)
+    if (i !== undefined) upperIdx.add(i)
+  })
 
   const isW = (i: number) => P[i].gender === 'F'
   const grade = (i: number) => P[i].grade
@@ -166,6 +177,15 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
     return a == null || b == null || Math.abs(a - b) <= 1
   }
   const adjacent = (i: number, r: number) => (rounds[r - 2]?.used.has(i) ? 1 : 0) + (rounds[r]?.used.has(i) ? 1 : 0)
+
+  /** B + C partnership with a lower C player, when some Upper C players are named: a mild cost, so Upper C goes first. */
+  function upperPenalty(x: number, y: number) {
+    if (upperIdx.size === 0) return 0
+    const gx = grade(x)
+    const gy = grade(y)
+    const c = gx === GRADE_B && gy === GRADE_C ? y : gy === GRADE_B && gx === GRADE_C ? x : -1
+    return c >= 0 && !upperIdx.has(c) ? UPPER_COST : 0
+  }
 
   function partnerPenalty(x: number, y: number) {
     const d = grade(x) === GRADE_D ? y : grade(y) === GRADE_D ? x : -1
@@ -250,7 +270,7 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
           }
           cost += (partnerHist.get(key(anchor, p)) ?? 0) * 10 + (partnerHist.get(key(x, y)) ?? 0) * 10
           for (const u of [anchor, p]) for (const v of [x, y]) cost += (oppHist.get(key(u, v)) ?? 0) * 2
-          cost += partnerPenalty(anchor, p) + partnerPenalty(x, y)
+          cost += partnerPenalty(anchor, p) + partnerPenalty(x, y) + upperPenalty(anchor, p) + upperPenalty(x, y)
           cost += 0.6 * (games[p] + games[x] + games[y]) + 0.9 * (adjacent(p, r) + adjacent(x, r) + adjacent(y, r))
           cost += rand() * 0.05
           if (!best || cost < best.cost) best = { a: A, b: B, cost, tier, kind }
@@ -306,7 +326,9 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
         .map((i) => {
           let compat = 0
           for (const j of free) if (j !== i && near(i, j) && (!teamsActive || P[j].team !== P[i].team || mode === 'filler')) compat++
-          return { i, pri: games[i] + 0.9 * adjacent(i, r) + compat * 0.08 + rand() * 0.2 }
+          // With Upper C named, B players pick their partner first, so they get the choice of Upper C players.
+          const bFirst = upperIdx.size > 0 && grade(i) === GRADE_B ? 1.2 : 0
+          return { i, pri: games[i] + 0.9 * adjacent(i, r) + compat * 0.08 + rand() * 0.2 - bFirst }
         })
         .sort((u, v) => u.pri - v.pri)
       let found: Cand | null = null
