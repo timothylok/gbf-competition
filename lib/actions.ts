@@ -107,6 +107,7 @@ export async function updateCompetition(fd: FormData) {
     'UPDATE competitions SET name=$2, event_date=$3, start_time=$4, courts=$5, slot_minutes=$6, status=$7, end_time=$8, pairing_rules=$9 WHERE id=$1',
     [id, c.name, c.event_date, c.start_time, c.courts, c.slot_minutes, c.status, c.end_time || null, (c.pairing_rules ?? '').trim() || null],
   )
+  await syncUpperC(id)
   await audit(s.name, 'competition.update', `#${id} status=${c.status}`)
   back(path, 'ok', 'saved')
 }
@@ -122,6 +123,18 @@ export async function deleteCompetition(fd: FormData) {
   await query('DELETE FROM competitions WHERE id=$1', [id])
   await audit(s.name, 'competition.delete', `${rows[0].name} (#${id})`)
   back('/admin', 'ok', 'deleted')
+}
+
+/** Copy the Upper C marks from a competition's pairing rules onto its players, so every page can work out the head start. */
+async function syncUpperC(comp: number) {
+  const [c] = await query<{ pairing_rules: string | null }>('SELECT pairing_rules FROM competitions WHERE id=$1', [comp])
+  if (!c) return
+  const rows = await query<{ id: number; nickname: string; gender: 'M' | 'F'; grade: number | null }>(
+    'SELECT id, nickname, gender, grade FROM players WHERE competition_id=$1',
+    [comp],
+  )
+  const upper = [...compileRules(parseRules(c.pairing_rules), rows).upperC]
+  await query('UPDATE players SET upper_c = (id = ANY($2::int[])) WHERE competition_id=$1', [comp, upper])
 }
 
 // ---------- players ----------
@@ -144,6 +157,7 @@ export async function addPlayers(fd: FormData) {
      ON CONFLICT (competition_id, nickname) DO NOTHING`,
     params,
   )
+  await syncUpperC(id)
   await audit(s.name, 'players.add', `#${id}: ${players.length} lines`)
   back(path, 'ok', 'created')
 }
@@ -172,6 +186,7 @@ export async function updatePlayer(fd: FormData) {
     if (isUniqueViolation(e)) back(path, 'err', 'duplicate')
     throw e
   }
+  await syncUpperC(comp)
   await audit(s.name, 'player.update', `#${p.id} ${p.nickname}`)
   back(path, 'ok', 'saved')
 }
@@ -231,6 +246,7 @@ export async function generateSchedule(fd: FormData) {
   const parsedRules = parseRules(comps[0].pairing_rules)
   const compiledRules = compileRules(parsedRules, rows.map((p) => ({ id: p.id, nickname: p.nickname, gender: p.gender, grade: p.grade })))
   if (parsedRules.errors.length || compiledRules.problems.length) back(path, 'err', 'badrules')
+  await syncUpperC(id)
   const plan = generatePlan(players, comps[0].courts, { maxGames: r.data.maxGames, maxRounds }, r.data.seed, { forbidden: compiledRules.forbidden, required: compiledRules.required, upperC: compiledRules.upperC, preferWD: compiledRules.preferWD, unavailable: unavailableRounds(compiledRules.availability, comps[0].start_time, comps[0].slot_minutes, maxRounds) })
   if (plan.matches.length === 0) back(path, 'err', 'players')
 

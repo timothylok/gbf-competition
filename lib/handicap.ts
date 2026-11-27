@@ -1,15 +1,19 @@
 /**
- * Head start (handicap) for matches where women play against men.
+ * Head start (handicap) for matches where women play against men, in whole points.
  *  - two women vs two men: full head start
- *  - one woman + one man vs two men: half
+ *  - one woman + one man vs two men: half (rounded down)
  *  - any other line-up: none
- * Full head start is 4 points when the sides have the same average grade, 6 when the women's side is
- * one grade lower. Grades are rounded to the nearest whole grade; halves go to the weaker grade.
- * Other grade gaps are not covered by the rules yet, so they give 0 points (shown as "to be confirmed").
+ * Skill order: B > Upper C > C > D. Upper C sits half a grade above C. A side's strength is the average of its two
+ * players. Full head start for the women's side by how much stronger the men's side is (in grades):
+ *    men one grade stronger +6, half a grade +5, level +4, women half a grade stronger +3, women one grade stronger +2.
+ * Gaps in between (a quarter grade, from mixed-grade pairs) round to a whole point in favour of the weaker side.
+ * Anything outside +2..+6 is not covered by the rules (0 points, shown as "to be confirmed").
  */
 export interface Lineup {
   gender: 'M' | 'F'
   grade: number | null
+  /** Upper C: a C player ranked half a grade above the other C players. */
+  upper?: boolean
 }
 export interface HeadStart {
   /** The side that starts ahead (the side with the women). */
@@ -40,9 +44,15 @@ export function headStartOf(m: { a1: number; a2: number; b1: number; b2: number 
 
 export const FULL_SAME_GRADE = 4
 export const FULL_ONE_LOWER = 6
+export const FULL_WOMEN_ONE_STRONGER = 2
 
-const avgGrade = (p: [Lineup, Lineup]) =>
-  p[0].grade == null || p[1].grade == null ? null : Math.round((p[0].grade + p[1].grade) / 2)
+/** Skill as a number, lower = stronger: the grade, with Upper C half a grade above C. */
+const skill = (p: Lineup): number | null => (p.grade == null ? null : p.grade === 3 && p.upper ? 2.5 : p.grade)
+const avgSkill = (p: [Lineup, Lineup]): number | null => {
+  const x = skill(p[0])
+  const y = skill(p[1])
+  return x == null || y == null ? null : (x + y) / 2
+}
 
 export function headStart(a: [Lineup, Lineup], b: [Lineup, Lineup]): HeadStart | null {
   const wa = a.filter((p) => p.gender === 'F').length
@@ -53,9 +63,11 @@ export function headStart(a: [Lineup, Lineup], b: [Lineup, Lineup]): HeadStart |
   else if (wb > 0 && wa === 0) [side, women] = ['b', wb]
   else return null
   const half = women === 1
-  const ga = avgGrade(side === 'a' ? a : b)
-  const gb = avgGrade(side === 'a' ? b : a)
-  const gap = ga == null || gb == null ? null : ga - gb
-  const full = gap === 0 ? FULL_SAME_GRADE : gap === 1 ? FULL_ONE_LOWER : 0
-  return { side, points: half ? Math.floor(full / 2) : full, half, covered: full > 0 }
+  const sa = avgSkill(side === 'a' ? a : b)
+  const sb = avgSkill(side === 'a' ? b : a)
+  // gap > 0: the men are stronger. Each grade is 2 points; a half point goes to the weaker side.
+  const raw = sa == null || sb == null ? null : 4 + 2 * (sa - sb)
+  const full = raw == null ? 0 : raw >= 4 ? Math.ceil(raw) : Math.floor(raw)
+  const covered = raw != null && full >= FULL_WOMEN_ONE_STRONGER && full <= FULL_ONE_LOWER
+  return { side, points: covered ? (half ? Math.floor(full / 2) : full) : 0, half, covered }
 }

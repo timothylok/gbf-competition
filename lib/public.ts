@@ -14,6 +14,6 @@ export async function loadPublic(c: string | undefined) {
   if (!comp) return null
   const [players, matches] = await Promise.all([getPlayers(comp.id), getMatches(comp.id)])
   const names: Names = Object.fromEntries(players.map((p) => [p.id, withGrade(p.nickname, p.grade)]))
-  const info: Info = Object.fromEntries(players.map((p) => [p.id, { gender: p.gender, grade: p.grade }]))
+  const info: Info = Object.fromEntries(players.map((p) => [p.id, { gender: p.gender, grade: p.grade, upper: p.upper_c }]))
   return { comp, players, matches, names, info }
 }

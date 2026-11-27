@@ -25,6 +25,8 @@ export interface Player {
   grade: number | null
   /** Happy to partner a D-grade player. */
   d_friendly: boolean
+  /** Upper C (set from the pairing rules): a C player ranked half a grade above the other C players. */
+  upper_c: boolean
 }
 export interface Match {
   id: number

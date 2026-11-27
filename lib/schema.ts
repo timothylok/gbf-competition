@@ -24,6 +24,7 @@ export const SCHEMA_SQL = [
     UNIQUE (competition_id, nickname)
   )`,
   `ALTER TABLE players ADD COLUMN IF NOT EXISTS d_friendly BOOLEAN NOT NULL DEFAULT false`,
+  `ALTER TABLE players ADD COLUMN IF NOT EXISTS upper_c BOOLEAN NOT NULL DEFAULT false`,
   `CREATE TABLE IF NOT EXISTS matches (
     id SERIAL PRIMARY KEY,
     competition_id INT NOT NULL REFERENCES competitions(id) ON DELETE CASCADE,

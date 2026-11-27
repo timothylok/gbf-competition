@@ -270,8 +270,8 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
           } else if ((wa === 2 && wb === 0) || (wa === 0 && wb === 2)) {
             if (wa === 0) [A, B] = [B, A] // the women's side is side A
             const hs = headStart(
-              [{ gender: 'F', grade: grade(A[0]) }, { gender: 'F', grade: grade(A[1]) }],
-              [{ gender: 'M', grade: grade(B[0]) }, { gender: 'M', grade: grade(B[1]) }],
+              [{ gender: 'F', grade: grade(A[0]), upper: upperIdx.has(A[0]) }, { gender: 'F', grade: grade(A[1]), upper: upperIdx.has(A[1]) }],
+              [{ gender: 'M', grade: grade(B[0]), upper: upperIdx.has(B[0]) }, { gender: 'M', grade: grade(B[1]), upper: upperIdx.has(B[1]) }],
             )
             if (!hs || !hs.covered || hs.half) continue
             kind = 'HD'

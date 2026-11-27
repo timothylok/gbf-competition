@@ -21,8 +21,10 @@ describe('layout: phone width, accessibility, colours', () => {
     comp = await seed(admin, { name: 'Layout Cup', men: 12, women: 8, live: true })
     const ms = await listMatches(admin, comp)
     await setScore(admin, comp, ms[0].id, 'done', '15', '9')
-    await setScore(admin, comp, ms.find((m) => m.event === 'XD')!.id, 'done', '12', '12')
-    await setScore(admin, comp, ms[2].id, 'live', '7', '5')
+    const xd = ms.find((m) => m.event === 'XD')!
+    await setScore(admin, comp, xd.id, 'done', '12', '12')
+    // a third, different match goes live (the draw's order can change, so do not rely on a fixed index)
+    await setScore(admin, comp, ms.find((m) => m.id !== ms[0].id && m.id !== xd.id)!.id, 'live', '7', '5')
     await setStatus(admin, comp, 'live')
     // The admin session is reused on a phone-sized page so admin screens can be audited too.
     phone = await browser.newPage()

@@ -32,7 +32,7 @@ export async function resolveCompetition(param: string | undefined, isAdmin: boo
 
 export async function getPlayers(competitionId: number): Promise<Player[]> {
   return query<Player>(
-    'SELECT id, competition_id, nickname, gender, grade, d_friendly FROM players WHERE competition_id = $1 ORDER BY lower(nickname)',
+    'SELECT id, competition_id, nickname, gender, grade, d_friendly, upper_c FROM players WHERE competition_id = $1 ORDER BY lower(nickname)',
     [competitionId],
   )
 }

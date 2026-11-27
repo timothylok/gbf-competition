@@ -72,7 +72,7 @@ export default async function SchedulePage({ params, searchParams }: { params: {
   const maxRounds = maxRoundsFor(comp)
   const plan = estimatePlan(withTeam, DEFAULT_MAX_GAMES, comp.courts)
   const planRounds = plan.rounds
-  const info = Object.fromEntries(players.map((p) => [p.id, { gender: p.gender, grade: p.grade }]))
+  const info = Object.fromEntries(players.map((p) => [p.id, { gender: p.gender, grade: p.grade, upper: p.upper_c }]))
   const lp = (i: number): LineupPlayer | null => {
     const p = byId.get(i)
     return p ? { id: p.id, gender: p.gender, grade: p.grade, team: teamOf(p.nickname) } : null

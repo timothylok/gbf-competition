@@ -4,7 +4,7 @@ import { standings } from '../../lib/standings'
 import { roundTime } from '../../lib/time'
 import type { Match, Player } from '../../lib/types'
 
-const P = (id: number, nickname: string): Player => ({ id, competition_id: 1, nickname, gender: 'M', grade: null, d_friendly: false })
+const P = (id: number, nickname: string): Player => ({ id, competition_id: 1, nickname, gender: 'M', grade: null, d_friendly: false, upper_c: false })
 const players = [P(1, 'a'), P(2, 'b'), P(3, 'c'), P(4, 'd')]
 const M = (o: Partial<Match>): Match => ({
   id: 1, competition_id: 1, event: 'MD', round: 1, court: 1, a1: 1, a2: 2, b1: 3, b2: 4,

@@ -62,16 +62,17 @@ async function readSchedule(page: Page, comp: number): Promise<Row[]> {
 
 const p = (name: string) => people.get(name)!
 const womenIn = (names: string[]) => names.filter((n) => p(n).gender === 'F').length
-/** Independent copy of the head start rule: 4 at the same grade, 6 when the women are one grade lower, half for one woman + one man. */
+/** Independent copy of the head start rule (no Upper C in this roster): 2 to 6 by the grade gap (2 per grade, averaged per side), half for one woman + one man. */
 function expectedHeadStart(names: string[]): number | null {
   const a = names.slice(0, 2), b = names.slice(2)
   const wa = womenIn(a), wb = womenIn(b)
   if (!((wa > 0 && wb === 0) || (wb > 0 && wa === 0))) return null
   const [ws, ms] = wa > 0 ? [a, b] : [b, a]
-  const avg = (s: string[]) => Math.round((p(s[0]).grade + p(s[1]).grade) / 2)
-  const gap = avg(ws) - avg(ms)
-  const full = gap === 0 ? 4 : gap === 1 ? 6 : 0
-  return womenIn(ws) === 1 ? Math.floor(full / 2) : full
+  const avg = (s: string[]) => (p(s[0]).grade + p(s[1]).grade) / 2
+  const raw = 4 + 2 * (avg(ws) - avg(ms))
+  const full = raw >= 4 ? Math.ceil(raw) : Math.floor(raw)
+  const covered = full >= 2 && full <= 6
+  return !covered ? 0 : womenIn(ws) === 1 ? Math.floor(full / 2) : full
 }
 const gamesOf = (rows: Row[]) => {
   const g = new Map<string, number>()
@@ -190,7 +191,7 @@ describe(`game rules: Philippines vs the rest, grades, handicap (${N} players, $
     assert(rows.some((m) => m.kind === 'Handicap doubles'), "the Philippines women (11) outnumber the rest's (8), so some play the rest's men")
   })
 
-  it('every handicap match shows the right head start (4 level, 6 one grade lower)', () => {
+  it('every handicap match shows the right head start (2 to 6 by the grade gap)', () => {
     for (const m of rows.filter((r) => r.kind === 'Handicap doubles')) {
       const exp = expectedHeadStart(m.names)
       assert(exp && exp > 0, `${m.names.join('/')}: the draw only makes matches the rules cover`)
@@ -224,13 +225,13 @@ describe(`game rules: Philippines vs the rest, grades, handicap (${N} players, $
     assert(handicap > 0)
     await go(page, `/admin/c/${comp}/scores`)
     const scoreText = await page.evaluate(() => document.body.innerText)
-    assert.match(scoreText, /Women start \+[46]/)
+    assert.match(scoreText, /Women start \+[2-6]/)
     assert.match(scoreText, /handicap doubles/i) // the score screen shows labels in capitals
     await setStatus(page, comp, 'live')
     const html = (await fetchHtml(`/schedule?c=${comp}`)).html
     const handicapCards = cards(html).filter((c) => /Handicap doubles/.test(c))
     assert.equal(handicapCards.length, handicap)
-    assert(handicapCards.every((c) => /Women start \+[46]/.test(c)), 'every public handicap card shows its head start')
+    assert(handicapCards.every((c) => /Women start \+[2-6]/.test(c)), 'every public handicap card shows its head start')
     assert(cards(html).some((c) => /Women's doubles/.test(c)), "women's doubles cards are labelled")
   })
 

@@ -73,7 +73,7 @@ export default async function ScoresPage({ params, searchParams }: { params: { i
   const [players, matches] = await Promise.all([getPlayers(id), getMatches(id)])
   const names = new Map(players.map((p) => [p.id, withGrade(p.nickname, p.grade)]))
   const nm = (i: number) => names.get(i) ?? '?'
-  const info = Object.fromEntries(players.map((p) => [p.id, { gender: p.gender, grade: p.grade }]))
+  const info = Object.fromEntries(players.map((p) => [p.id, { gender: p.gender, grade: p.grade, upper: p.upper_c }]))
 
   const rounds = [...new Set(matches.map((m) => m.round))].sort((a, b) => a - b)
   const isOpen = (r: number) => matches.some((m) => m.round === r && (m.status === 'scheduled' || m.status === 'live'))

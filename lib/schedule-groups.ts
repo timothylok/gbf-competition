@@ -43,7 +43,7 @@ export interface ScheduleGroup {
  */
 export function scheduleGroups(comp: Competition, players: Player[], matches: Match[], by: 'court' | 'time', t: T): ScheduleGroup[] {
   const byId = new Map(players.map((p) => [p.id, p]))
-  const info = Object.fromEntries(players.map((p) => [p.id, { gender: p.gender, grade: p.grade }]))
+  const info = Object.fromEntries(players.map((p) => [p.id, { gender: p.gender, grade: p.grade, upper: p.upper_c }]))
   const label = (id: number) => {
     const p = byId.get(id)
     return p ? withGrade(p.nickname, p.grade) : '?'
