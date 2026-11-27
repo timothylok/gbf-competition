@@ -250,4 +250,22 @@ describe('cross doubles limit: at most one per player', () => {
     assert(over.length > 0, 'twelve extra women-games cannot fit one each for six women')
     assert.deepEqual([...plan.crossExceptions].sort((a, b) => a.id - b.id), over)
   })
+  it('repairs second cross matches that a plain draw leaves: a lopsided roster with grades still ends with none', () => {
+    // 12 Philippines women (3 B, 4 C, 5 D) against 10 women on the other team (2 B, 6 C, 2 D); men of mixed grades.
+    const mkTeam = (team: 'F' | 'R', women: number[], men: number[], start: number): SchedPlayer[] => [
+      ...women.map((g, i): SchedPlayer => ({ id: start + i, gender: 'F', grade: g, team })),
+      ...men.map((g, i): SchedPlayer => ({ id: start + 50 + i, gender: 'M', grade: g, team })),
+    ]
+    const rep = (n: number, g: number) => Array<number>(n).fill(g)
+    const ps = [
+      ...mkTeam('F', [...rep(3, 2), ...rep(4, 3), ...rep(5, 4)], [...rep(3, 2), ...rep(8, 3), ...rep(4, 4)], 1),
+      ...mkTeam('R', [...rep(2, 2), ...rep(6, 3), ...rep(2, 4)], [...rep(4, 2), ...rep(10, 3), ...rep(3, 4)], 200),
+    ]
+    for (const seed of [1, 2, 3, 4, 5, 6]) {
+      const plan = generatePlan(ps, 5, { maxGames: 6, maxRounds: 19 }, seed)
+      assert.deepEqual(plan.crossExceptions, [], `seed ${seed}: nobody plays two cross doubles matches`)
+      assert.equal(plan.underCap.length, 0, `seed ${seed}: everyone still gets their full games`)
+      checkRules(plan, ps, 5, 6, 19)
+    }
+  })
 })

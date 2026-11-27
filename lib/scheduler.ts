@@ -1,5 +1,5 @@
 import type { EventType, Gender } from './types'
-import { startScore } from './handicap'
+import { startScore, type Lineup } from './handicap'
 
 /**
  * The draw. Rules (see docs/game-rules.md):
@@ -380,6 +380,96 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
     return placed
   }
 
+  /** Cross doubles played by each player in the finished rounds. */
+  function crossCounts(): number[] {
+    const c = new Array<number>(n).fill(0)
+    for (const rs of rounds) for (const m of rs.matches) if (m.kind === 'HD') for (const i of [...m.a, ...m.b]) c[i]++
+    return c
+  }
+
+  /**
+   * Fixes second cross doubles matches after the draw: a player with two swaps places with a player of the same team
+   * and gender who has none, taking over one of that player's ordinary matches. A swap is only made when both changed
+   * matches still obey every rule (partners, grades, opponents, availability, the starting score) and no preference gets worse.
+   */
+  function repairCross() {
+    const lineup = (i: number): Lineup => ({ gender: P[i].gender, grade: P[i].grade, upper: upperIdx.has(i) })
+    const pairs = (m: Cand): [number, number][] => [m.a, m.b]
+    const sidePen = (m: Cand) => upperPenalty(m.a[0], m.a[1]) + upperPenalty(m.b[0], m.b[1])
+    const isRequired = (m: Cand) => pairs(m).some(([x, y]) => required.some(([a, b]) => (a === x && b === y) || (a === y && b === x)))
+    const swapped = (m: Cand, from: number, to: number): Cand => {
+      const sw = (x: number) => (x === from ? to : x)
+      return { ...m, a: [sw(m.a[0]), sw(m.a[1])], b: [sw(m.b[0]), sw(m.b[1])] }
+    }
+    const legal = (m: Cand, r: number): boolean => {
+      const ids = [...m.a, ...m.b]
+      if (!ids.every((i) => canPlay(i, r))) return false
+      if (bad(m.a[0], m.a[1]) || bad(m.b[0], m.b[1])) return false
+      if (!gradeSpreadOk(ids.map(grade))) return false
+      if (upperIdx.size > 0 && ((strongC(m.a[0], m.a[1]) && bothD(m.b[0], m.b[1])) || (bothD(m.a[0], m.a[1]) && strongC(m.b[0], m.b[1])))) return false
+      if (m.kind === 'HD' && !startScore([lineup(m.a[0]), lineup(m.a[1])], [lineup(m.b[0]), lineup(m.b[1])]).covered) return false
+      return true
+    }
+    const retier = (m: Cand) => {
+      if (m.tier === 'filler') return
+      const known = [...m.a, ...m.b].map(grade).filter((g): g is number => g != null)
+      m.tier = m.kind === 'HD' ? 'handicap' : known.every((g) => g === known[0]) ? 'ideal' : 'close'
+    }
+    // Random swaps between a cross match and an ordinary match, kept when the number of second cross matches does not
+    // grow. Sideways swaps are what let a chain of players hand a cross match down to someone who has none.
+    const excessOf = (c: number) => (c > 1 ? c - 1 : 0)
+    const count = crossCounts()
+    let total = count.reduce((t, c) => t + excessOf(c), 0)
+    for (let it = 0; it < 6000 && total > 0; it++) {
+      const cross: [number, number][] = []
+      const plain: [number, number][] = []
+      rounds.forEach((rs, ri) => rs.matches.forEach((m, k) => (m.kind === 'HD' ? cross : plain).push([ri, k])))
+      // Mostly start from a player who has a second cross match.
+      const over = [...Array(n).keys()].filter((i) => count[i] > 1)
+      const mine = cross.filter(([ri, k]) => [...rounds[ri].matches[k].a, ...rounds[ri].matches[k].b].some((i) => over.includes(i)))
+      if (cross.length === 0 || plain.length === 0) break
+      const pool = mine.length && rand() < 0.7 ? mine : cross
+      const [r1i, k1] = pool[Math.floor(rand() * pool.length)]
+      const m1 = rounds[r1i].matches[k1]
+      const ids1 = [...m1.a, ...m1.b]
+      const cand = ids1.filter((i) => count[i] >= 1)
+      const pp = over.some((i) => ids1.includes(i)) && rand() < 0.8 ? ids1.filter((i) => over.includes(i)) : cand
+      if (pp.length === 0) continue
+      const pi = pp[Math.floor(rand() * pp.length)]
+      const [r2i, k2] = plain[Math.floor(rand() * plain.length)]
+      const m2 = rounds[r2i].matches[k2]
+      const ids2 = [...m2.a, ...m2.b]
+      const qs = ids2.filter((i) => i !== pi && P[i].gender === P[pi].gender && P[i].team === P[pi].team && !ids1.includes(i))
+      if (!qs.length || ids2.includes(pi)) continue
+      const q = qs[Math.floor(rand() * qs.length)]
+      const r1 = r1i + 1
+      const r2 = r2i + 1
+      if (r1 !== r2 && (rounds[r2i].used.has(pi) || rounds[r1i].used.has(q))) continue
+      if (isRequired(m1) || isRequired(m2)) continue
+      if (wdIdx.has(q) || (wdIdx.has(pi) && m2.kind !== 'WD')) continue
+      const delta = excessOf(count[pi] - 1) - excessOf(count[pi]) + excessOf(count[q] + 1) - excessOf(count[q])
+      if (delta > 0) continue
+      const n1 = swapped(m1, pi, q)
+      const n2 = swapped(m2, q, pi)
+      if (!legal(n1, r1) || !legal(n2, r2)) continue
+      if (sidePen(n1) + sidePen(n2) > sidePen(m1) + sidePen(m2)) continue
+      retier(n1)
+      retier(n2)
+      rounds[r1i].matches[k1] = n1
+      rounds[r2i].matches[k2] = n2
+      if (r1i !== r2i) {
+        // Within one round both players are still playing; across two rounds each moves from one to the other.
+        rounds[r1i].used.delete(pi)
+        rounds[r1i].used.add(q)
+        rounds[r2i].used.delete(q)
+        rounds[r2i].used.add(pi)
+      }
+      count[pi]--
+      count[q]++
+      total += delta
+    }
+  }
+
   const addRound = () => rounds.push({ used: new Set(), matches: [] })
   const maxRounds = Math.max(0, targets.maxRounds)
 
@@ -408,6 +498,8 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
   }
   // Drop empty trailing rounds.
   while (rounds.length && rounds[rounds.length - 1].matches.length === 0) rounds.pop()
+  repairCross()
+  const finalCross = crossCounts()
 
   const matches: PlannedMatch[] = []
   const counts = { MD: 0, XD: 0, WD: 0, HD: 0, filler: 0, close: 0 }
@@ -439,11 +531,11 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
     closeCount: counts.close,
     gamesPerPlayer: new Map(P.map((p, i) => [p.id, games[i]])),
     underCap,
-    crossExceptions: P.flatMap((p, i) => (crossGames[i] > 1 ? [{ id: p.id, count: crossGames[i] }] : [])),
+    crossExceptions: P.flatMap((p, i) => (finalCross[i] > 1 ? [{ id: p.id, count: finalCross[i] }] : [])),
     unmetPairs: required.filter((_, k) => !met[k]).map(([a, b]) => [P[a].id, P[b].id] as [number, number]),
     warnings,
     // Lower is better, compared left to right: players short of the cap, then fewest games, then total games.
-    rank: [met.filter((m) => !m).length, underCap.length, crossGames.filter((c) => c > 1).length, cap - Math.min(...games), -total, counts.HD + counts.filler, counts.close, repeats, rounds.length],
+    rank: [met.filter((m) => !m).length, underCap.length, finalCross.filter((c) => c > 1).length, cap - Math.min(...games), -total, counts.HD + counts.filler, counts.close, repeats, rounds.length],
   }
 }
 
