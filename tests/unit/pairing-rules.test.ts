@@ -265,3 +265,24 @@ describe('prefer: women\'s doubles', () => {
     assert(pref.wd > pref.xd, `more WD than XD (${pref.wd} vs ${pref.xd})`)
   })
 })
+
+describe('Upper C matches against D', () => {
+  it('two C players (one Upper C) never play two D players; B never plays D', () => {
+    const ps: SchedPlayer[] = []
+    for (const team of ['F', 'R'] as const) {
+      for (let k = 0; k < 14; k++) ps.push({ id: ps.length + 1, gender: 'M', grade: k < 2 ? 2 : k < 9 ? 3 : 4, team })
+    }
+    const upperC = new Set(ps.filter((p) => p.grade === 3 && p.id % 3 === 0).map((p) => p.id))
+    const g = (id: number) => ps[id - 1].grade
+    for (let seed = 1; seed <= 5; seed++) {
+      const plan = generatePlan(ps, 4, { maxGames: 5, maxRounds: 19 }, seed, { forbidden: new Set(), required: [], upperC })
+      for (const m of plan.matches) {
+        const A = [m.a1, m.a2], B = [m.b1, m.b2]
+        const strong = (s: number[]) => s.every((i) => g(i) === 3) && s.some((i) => upperC.has(i))
+        const dd = (s: number[]) => s.every((i) => g(i) === 4)
+        assert(!((strong(A) && dd(B)) || (strong(B) && dd(A))), `round ${m.round}`)
+        assert(!([...A, ...B].some((i) => g(i) === 2) && [...A, ...B].some((i) => g(i) === 4)), 'B vs D')
+      }
+    }
+  })
+})

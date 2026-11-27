@@ -77,9 +77,9 @@ const GRADE_B = 2
 const GRADE_C = 3
 const GRADE_D = 4
 /** Cost of pairing a B player with a lower C player when an Upper C player could do it (tuned against the 25 of a mixed-grade match). */
-const UPPER_COST = 18
+const UPPER_COST = 40
 /** How much cheaper women's doubles is (and how much dearer mixed is) for a woman who prefers women's doubles. */
-const WD_BONUS = 10
+const WD_BONUS = 25
 
 /** True when all known grades are within one grade of each other (unknown grades never block). */
 export function gradeSpreadOk(grades: (number | null | undefined)[]): boolean {
@@ -195,6 +195,9 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
   }
   const adjacent = (i: number, r: number) => (rounds[r - 2]?.used.has(i) ? 1 : 0) + (rounds[r]?.used.has(i) ? 1 : 0)
 
+  const bothD = (u: number, v: number) => grade(u) === GRADE_D && grade(v) === GRADE_D
+  const strongC = (u: number, v: number) => grade(u) === GRADE_C && grade(v) === GRADE_C && (upperIdx.has(u) || upperIdx.has(v))
+
   /** B + C partnership with a lower C player, when some Upper C players are named: a mild cost, so Upper C goes first. */
   function upperPenalty(x: number, y: number) {
     if (upperIdx.size === 0) return 0
@@ -254,6 +257,8 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
           const y = oppPool[yi]
           if (y === p || !near(p, y) || !near(x, y) || bad(x, y)) continue
           if (!gradeSpreadOk([...gs, grade(x), grade(y)])) continue
+          // With Upper C named: two C players (one of them Upper C) never play against two D players.
+          if (upperIdx.size > 0 && (strongC(anchor, p) && bothD(x, y) || bothD(anchor, p) && strongC(x, y))) continue
           const wa = (isW(anchor) ? 1 : 0) + (isW(p) ? 1 : 0)
           const wb = (isW(x) ? 1 : 0) + (isW(y) ? 1 : 0)
           let A: [number, number] = [anchor, p]
