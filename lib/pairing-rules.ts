@@ -10,6 +10,8 @@ import { roundSpan } from './time'
  *                             (each side is one player: a nickname, optionally `& team:F`)
  *   available: <who> | <from>-<to>, <from>-end   these players only play matches that start and finish inside
  *                             the windows (24-hour times like 13:30, or 1:30pm; `end` = to the end of the day)
+ *   prefer: <who> | wd        these women are given women's doubles ahead of mixed doubles where possible
+ *                             (a preference, never a restriction)
  *   upper: <who>              these C-grade players are "Upper C": when a B player is paired with a C player,
  *                             the draw prefers an Upper C partner (a preference, never a restriction)
  *
@@ -26,6 +28,7 @@ export type Rule =
   | { kind: 'avoid'; line: number; a: Selector; b: Selector }
   | { kind: 'pair'; line: number; a: Term[]; b: Term[] }
   | { kind: 'upper'; line: number; who: Selector }
+  | { kind: 'preferWD'; line: number; who: Selector }
   | { kind: 'available'; line: number; who: Selector; windows: [number, number][] }
 
 export interface RuleProblem {
@@ -56,6 +59,8 @@ export interface CompiledRules {
   avoidRules: number
   /** Players marked Upper C (a soft preference for B+C partnerships). */
   upperC: Set<number>
+  /** Women who should get more women's doubles than mixed doubles (a preference). */
+  preferWD: Set<number>
   /** Time windows (minutes of the day) when a player can play; players not listed can play any time. */
   availability: Map<number, [number, number][]>
 }
@@ -102,13 +107,22 @@ export function parseRules(text: string | null | undefined): ParsedRules {
     const line = i + 1
     const content = raw.replace(/#.*$/, '').trim()
     if (!content) return
-    const m = content.match(/^(avoid|pair|upper|available)\s*:\s*(.*)$/i)
+    const m = content.match(/^(avoid|pair|upper|available|prefer)\s*:\s*(.*)$/i)
     if (!m) {
-      errors.push({ line, message: 'A rule starts with "avoid:", "pair:", "upper:" or "available:".' })
+      errors.push({ line, message: 'A rule starts with "avoid:", "pair:", "upper:", "available:" or "prefer:".' })
       return
     }
     const body = m[2]
-    if (m[1].toLowerCase() === 'available') {
+    if (m[1].toLowerCase() === 'prefer') {
+      const parts = body.split('|')
+      if (parts.length !== 2 || !parts[0].trim() || parts[1].trim().toLowerCase() !== 'wd') {
+        errors.push({ line, message: 'Write prefer: <who> | wd (women-only doubles ahead of mixed).' })
+        return
+      }
+      const before = errors.length
+      const who = parseSelector(parts[0], line, errors)
+      if (errors.length === before && who.length) rules.push({ kind: 'preferWD', line, who })
+    } else if (m[1].toLowerCase() === 'available') {
       const parts = body.split('|')
       if (parts.length !== 2 || !parts[0].trim() || !parts[1].trim()) {
         errors.push({ line, message: 'Write available: <who> | 13:30-14:30, 15:30-end (one "|", then the time windows).' })
@@ -223,6 +237,7 @@ export function compileRules(parsed: ParsedRules, players: RulePlayer[]): Compil
   const warnings: RuleProblem[] = []
   let avoidRules = 0
   const upperC = new Set<number>()
+  const preferWD = new Set<number>()
   const availability = new Map<number, [number, number][]>()
 
   const resolveSelector = (sel: Selector, line: number): RulePlayer[] => {
@@ -243,7 +258,12 @@ export function compileRules(parsed: ParsedRules, players: RulePlayer[]): Compil
   }
 
   for (const rule of parsed.rules) {
-    if (rule.kind === 'available') {
+    if (rule.kind === 'preferWD') {
+      for (const p of resolveSelector(rule.who, rule.line)) {
+        if (p.gender !== 'F') warnings.push({ line: rule.line, message: `${p.nickname} is a man, so women's doubles does not apply.` })
+        else preferWD.add(p.id)
+      }
+    } else if (rule.kind === 'available') {
       for (const p of resolveSelector(rule.who, rule.line)) availability.set(p.id, [...(availability.get(p.id) ?? []), ...rule.windows])
     } else if (rule.kind === 'upper') {
       for (const p of resolveSelector(rule.who, rule.line)) {
@@ -273,5 +293,5 @@ export function compileRules(parsed: ParsedRules, players: RulePlayer[]): Compil
       required.push([a.id, b.id])
     }
   }
-  return { forbidden, required, problems, warnings, avoidRules, upperC, availability }
+  return { forbidden, required, problems, warnings, avoidRules, upperC, preferWD, availability }
 }

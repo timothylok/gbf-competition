@@ -45,6 +45,8 @@ export interface SchedRules {
   required: [number, number][]
   /** Upper C players: in a B+C partnership the draw prefers these over other C players (a preference only). */
   upperC?: Set<number>
+  /** Women who should get more women's doubles than mixed doubles (a preference only). */
+  preferWD?: Set<number>
   /** Rounds a player cannot play in (player id -> round numbers), from their available: windows. */
   unavailable?: Map<number, Set<number>>
 }
@@ -76,6 +78,8 @@ const GRADE_C = 3
 const GRADE_D = 4
 /** Cost of pairing a B player with a lower C player when an Upper C player could do it (tuned against the 25 of a mixed-grade match). */
 const UPPER_COST = 18
+/** How much cheaper women's doubles is (and how much dearer mixed is) for a woman who prefers women's doubles. */
+const WD_BONUS = 10
 
 /** True when all known grades are within one grade of each other (unknown grades never block). */
 export function gradeSpreadOk(grades: (number | null | undefined)[]): boolean {
@@ -171,6 +175,11 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
     if (i !== undefined) offRounds.set(i, rs)
   })
   const canPlay = (i: number, r: number) => !offRounds.get(i)?.has(r)
+  const wdIdx = new Set<number>()
+  rules?.preferWD?.forEach((id) => {
+    const i = idxOf.get(id)
+    if (i !== undefined) wdIdx.add(i)
+  })
   const upperIdx = new Set<number>()
   rules?.upperC?.forEach((id) => {
     const i = idxOf.get(id)
@@ -280,6 +289,8 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
           for (const u of [anchor, p]) for (const v of [x, y]) cost += (oppHist.get(key(u, v)) ?? 0) * 2
           cost += partnerPenalty(anchor, p) + partnerPenalty(x, y) + upperPenalty(anchor, p) + upperPenalty(x, y)
           cost += 0.6 * (games[p] + games[x] + games[y]) + 0.9 * (adjacent(p, r) + adjacent(x, r) + adjacent(y, r))
+          // Preferred women: women's doubles is cheaper and mixed doubles dearer.
+          if (wdIdx.size > 0 && (kind === 'WD' || kind === 'XD')) for (const i of ids) if (wdIdx.has(i)) cost += kind === 'WD' ? -WD_BONUS : WD_BONUS
           cost += rand() * 0.05
           if (!best || cost < best.cost) best = { a: A, b: B, cost, tier, kind }
         }
@@ -335,8 +346,9 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
           let compat = 0
           for (const j of free) if (j !== i && near(i, j) && (!teamsActive || P[j].team !== P[i].team || mode === 'filler')) compat++
           // With Upper C named, B players pick their partner first, so they get the choice of Upper C players.
+          const wdFirst = wdIdx.has(i) ? 1.2 : 0
           const bFirst = upperIdx.size > 0 && grade(i) === GRADE_B ? 1.2 : 0
-          return { i, pri: games[i] + 0.9 * adjacent(i, r) + compat * 0.08 + rand() * 0.2 - bFirst }
+          return { i, pri: games[i] + 0.9 * adjacent(i, r) + compat * 0.08 + rand() * 0.2 - bFirst - wdFirst }
         })
         .sort((u, v) => u.pri - v.pri)
       let found: Cand | null = null

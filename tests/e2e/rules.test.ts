@@ -484,7 +484,7 @@ describe(`game rules: Philippines vs the rest, grades, handicap (${N} players, $
     await go(page, `/admin/c/${c}`)
     const problems = await page.$eval('[data-testid=rule-problems]', (e) => e.textContent ?? '')
     assert.match(problems, /line 1: Write avoid: <who> \| <who>/)
-    assert.match(problems, /line 2: A rule starts with "avoid:", "pair:", "upper:" or "available:"/)
+    assert.match(problems, /line 2: A rule starts with "avoid:", "pair:", "upper:", "available:" or "prefer:"/)
     await generate(page, c, { hours: HOURS, seed: 5 })
     assert.match((await banner(page)) ?? '', /pairing rules have problems/)
     assert.match(await page.evaluate(() => document.body.innerText), /No matches yet/)

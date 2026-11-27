@@ -35,7 +35,7 @@ describe('parseRules (the rules box)', () => {
     const { errors } = parseRules('avoid: Kim\nfrobnicate: x\navoid: grade:Z | Kim\navoid: team:X | Kim\npair: Kim\navoid: Kim, | Lee')
     assert.deepEqual(errors.map((e) => e.line), [1, 2, 3, 4, 5, 6])
     assert.match(errors[0].message, /avoid: <who> \| <who>/)
-    assert.match(errors[1].message, /avoid:", "pair:", "upper:" or "available:/)
+    assert.match(errors[1].message, /avoid:", "pair:", "upper:", "available:" or "prefer:/)
     assert.match(errors[2].message, /letter A to I/)
     assert.match(errors[3].message, /team must be F/)
     assert.match(errors[4].message, /pair: <name> \+ <name>/)
@@ -231,5 +231,37 @@ describe('available: time windows', () => {
     const plan = generatePlan(ps, 5, { maxGames: 6, maxRounds: 19 }, 4, { forbidden: new Set(), required: [], unavailable: off })
     for (const m of plan.matches) if ([m.a1, m.a2, m.b1, m.b2].includes(id)) assert(!off.get(id)!.has(m.round), `round ${m.round}`)
     assert((plan.gamesPerPlayer.get(id) ?? 0) >= 3, 'plays in the windows')
+  })
+})
+
+describe('prefer: women\'s doubles', () => {
+  it('parses prefer: <who> | wd, warns for a man, rejects other forms', () => {
+    const ok = parseRules('prefer: Kim-F | wd')
+    assert.deepEqual(ok.errors, [])
+    assert.deepEqual([...compileRules(ok, ROSTER).preferWD], [3])
+    assert.equal(compileRules(parseRules('prefer: Alex-F | wd'), ROSTER).warnings.length, 1)
+    assert.equal(parseRules('prefer: Kim-F | md').errors.length, 1)
+    assert.equal(parseRules('prefer: Kim-F').errors.length, 1)
+  })
+  it('the preferred woman plays more women\'s doubles than mixed', () => {
+    const ps: SchedPlayer[] = []
+    for (const team of ['F', 'R'] as const) for (let k = 0; k < 14; k++) ps.push({ id: ps.length + 1, gender: k < 8 ? 'F' : 'M', grade: 3, team })
+    const target = 1
+    const tally = (rules?: { forbidden: Set<string>; required: [number, number][]; preferWD?: Set<number> }) => {
+      let wd = 0, xd = 0
+      for (let seed = 1; seed <= 6; seed++) {
+        const plan = generatePlan(ps, 4, { maxGames: 6, maxRounds: 19 }, seed, rules)
+        for (const m of plan.matches) {
+          const ids = [m.a1, m.a2, m.b1, m.b2]
+          if (!ids.includes(target)) continue
+          const women = ids.filter((i) => ps[i - 1].gender === 'F').length
+          if (women === 4) wd++
+          else if (women === 2) xd++
+        }
+      }
+      return { wd, xd }
+    }
+    const pref = tally({ forbidden: new Set(), required: [], preferWD: new Set([target]) })
+    assert(pref.wd > pref.xd, `more WD than XD (${pref.wd} vs ${pref.xd})`)
   })
 })
