@@ -17,6 +17,7 @@ Rules for GBF casual competitions as the app runs them. Items marked **To confir
   - women vs women (women's doubles)
   - one man and one woman against one man and one woman (mixed doubles)
 - When that is not possible, two women may play two men (**cross doubles**, with the starting score below). It is the last resort, mainly because the Philippines women outnumber the rest's women.
+- **Cross doubles limit:** each player plays at most one cross doubles match. The draw keeps to this where it can; when the grade rules leave no other legal opponents, a player may get a second, and the schedule page lists every exception (player, count, rounds) and flags those matches. Full games come first.
 - Several matches run at the same time, one per court. In each round men's doubles use the lower court numbers, then mixed, women's and cross doubles.
 
 ## Grades
