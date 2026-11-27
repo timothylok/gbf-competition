@@ -45,6 +45,12 @@ export function roundRange(start: string, slotMinutes: number, round: number): s
   return `${roundTime(start, slotMinutes, round)}–${roundTime(start, slotMinutes, round + 1)}`
 }
 
+/** First minute of the day and the minute the round ends, for a 1-based round, e.g. ("12:00", 15, 1) -> [735, 750]. */
+export function roundSpan(start: string, slotMinutes: number, round: number): [number, number] {
+  const s = toMinutes(start) + WARMUP_MINUTES + (round - 1) * slotMinutes
+  return [s, s + slotMinutes]
+}
+
 /** Start time of a 1-based round, after the warm-up, e.g. ("09:00", 15, 3) -> "09:45". */
 export function roundTime(start: string, slotMinutes: number, round: number): string {
   return toHHMM(toMinutes(start) + WARMUP_MINUTES + (round - 1) * slotMinutes)

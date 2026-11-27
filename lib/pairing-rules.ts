@@ -1,5 +1,6 @@
 import { gradeToLetter, parseGrade } from './grade'
 import { teamOf, type Team } from './team'
+import { roundSpan } from './time'
 
 /**
  * Pairing rules, written per competition (one rule per line, `#` starts a comment):
@@ -7,6 +8,8 @@ import { teamOf, type Team } from './team'
  *   avoid: <who> | <who>      the two groups never partner each other (same side of the net)
  *   pair:  <name> + <name>    the two play on the same side in mixed doubles at least once
  *                             (each side is one player: a nickname, optionally `& team:F`)
+ *   available: <who> | <from>-<to>, <from>-end   these players only play matches that start and finish inside
+ *                             the windows (24-hour times like 13:30, or 1:30pm; `end` = to the end of the day)
  *   upper: <who>              these C-grade players are "Upper C": when a B player is paired with a C player,
  *                             the draw prefers an Upper C partner (a preference, never a restriction)
  *
@@ -23,6 +26,7 @@ export type Rule =
   | { kind: 'avoid'; line: number; a: Selector; b: Selector }
   | { kind: 'pair'; line: number; a: Term[]; b: Term[] }
   | { kind: 'upper'; line: number; who: Selector }
+  | { kind: 'available'; line: number; who: Selector; windows: [number, number][] }
 
 export interface RuleProblem {
   line: number
@@ -52,6 +56,8 @@ export interface CompiledRules {
   avoidRules: number
   /** Players marked Upper C (a soft preference for B+C partnerships). */
   upperC: Set<number>
+  /** Time windows (minutes of the day) when a player can play; players not listed can play any time. */
+  availability: Map<number, [number, number][]>
 }
 
 /** Order-free key for two player ids. */
@@ -96,13 +102,31 @@ export function parseRules(text: string | null | undefined): ParsedRules {
     const line = i + 1
     const content = raw.replace(/#.*$/, '').trim()
     if (!content) return
-    const m = content.match(/^(avoid|pair|upper)\s*:\s*(.*)$/i)
+    const m = content.match(/^(avoid|pair|upper|available)\s*:\s*(.*)$/i)
     if (!m) {
-      errors.push({ line, message: 'A rule starts with "avoid:", "pair:" or "upper:".' })
+      errors.push({ line, message: 'A rule starts with "avoid:", "pair:", "upper:" or "available:".' })
       return
     }
     const body = m[2]
-    if (m[1].toLowerCase() === 'upper') {
+    if (m[1].toLowerCase() === 'available') {
+      const parts = body.split('|')
+      if (parts.length !== 2 || !parts[0].trim() || !parts[1].trim()) {
+        errors.push({ line, message: 'Write available: <who> | 13:30-14:30, 15:30-end (one "|", then the time windows).' })
+        return
+      }
+      const before = errors.length
+      const who = parseSelector(parts[0], line, errors)
+      const windows: [number, number][] = []
+      for (const w of parts[1].split(',')) {
+        const [from, to, ...extra] = w.split('-').map((x) => x.trim())
+        const f = from === undefined ? undefined : parseClock(from)
+        const t = to === undefined ? undefined : parseClock(to)
+        if (extra.length || f === undefined || t === undefined || t <= f) {
+          errors.push({ line, message: `"${w.trim()}": write a window as 13:30-14:30 (24-hour clock; the end can be the word end).` })
+        } else windows.push([f, t])
+      }
+      if (errors.length === before && who.length) rules.push({ kind: 'available', line, who, windows })
+    } else if (m[1].toLowerCase() === 'upper') {
       if (!body.trim()) {
         errors.push({ line, message: 'Write upper: <who>, <who> (the Upper C players).' })
         return
@@ -140,6 +164,41 @@ export function parseRules(text: string | null | undefined): ParsedRules {
   return { rules, errors }
 }
 
+/** "13:30", "1:30pm", "9am" -> minutes of the day; "end" -> the end of the day. Undefined when it is not a time. */
+function parseClock(raw: string): number | undefined {
+  const s = raw.trim().toLowerCase()
+  if (s === 'end') return 24 * 60
+  const m = s.match(/^(\d{1,2})(?::(\d{2}))?\s*(am|pm)?$/)
+  if (!m) return undefined
+  let h = Number(m[1])
+  const min = m[2] ? Number(m[2]) : 0
+  if (min > 59) return undefined
+  if (m[3]) {
+    if (h < 1 || h > 12) return undefined
+    h = (h % 12) + (m[3] === 'pm' ? 12 : 0)
+  } else if (h > 23) return undefined
+  return h * 60 + min
+}
+
+/** Rounds in which these players are not available: the round must start and finish inside one of their windows. */
+export function unavailableRounds(
+  availability: Map<number, [number, number][]>,
+  start: string,
+  slotMinutes: number,
+  maxRounds: number,
+): Map<number, Set<number>> {
+  const out = new Map<number, Set<number>>()
+  availability.forEach((windows, id) => {
+    const off = new Set<number>()
+    for (let r = 1; r <= maxRounds; r++) {
+      const [s, e] = roundSpan(start, slotMinutes, r)
+      if (!windows.some(([w0, w1]) => s >= w0 && e <= w1)) off.add(r)
+    }
+    out.set(id, off)
+  })
+  return out
+}
+
 /** How a group reads in a message, e.g. "Alex & team:F". */
 function describe(group: Term[]): string {
   return group.map((t) => (t.kind === 'name' ? t.name : t.kind === 'grade' ? `grade:${gradeToLetter(t.grade)}` : `team:${t.team}`)).join(' & ')
@@ -164,6 +223,7 @@ export function compileRules(parsed: ParsedRules, players: RulePlayer[]): Compil
   const warnings: RuleProblem[] = []
   let avoidRules = 0
   const upperC = new Set<number>()
+  const availability = new Map<number, [number, number][]>()
 
   const resolveSelector = (sel: Selector, line: number): RulePlayer[] => {
     const out = new Map<number, RulePlayer>()
@@ -183,7 +243,9 @@ export function compileRules(parsed: ParsedRules, players: RulePlayer[]): Compil
   }
 
   for (const rule of parsed.rules) {
-    if (rule.kind === 'upper') {
+    if (rule.kind === 'available') {
+      for (const p of resolveSelector(rule.who, rule.line)) availability.set(p.id, [...(availability.get(p.id) ?? []), ...rule.windows])
+    } else if (rule.kind === 'upper') {
       for (const p of resolveSelector(rule.who, rule.line)) {
         if (p.grade !== 3) warnings.push({ line: rule.line, message: `${p.nickname} is not a C-grade player, so Upper C has no effect for them.` })
         else upperC.add(p.id)
@@ -211,5 +273,5 @@ export function compileRules(parsed: ParsedRules, players: RulePlayer[]): Compil
       required.push([a.id, b.id])
     }
   }
-  return { forbidden, required, problems, warnings, avoidRules, upperC }
+  return { forbidden, required, problems, warnings, avoidRules, upperC, availability }
 }

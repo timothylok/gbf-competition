@@ -45,6 +45,8 @@ export interface SchedRules {
   required: [number, number][]
   /** Upper C players: in a B+C partnership the draw prefers these over other C players (a preference only). */
   upperC?: Set<number>
+  /** Rounds a player cannot play in (player id -> round numbers), from their available: windows. */
+  unavailable?: Map<number, Set<number>>
 }
 export interface Plan {
   matches: PlannedMatch[]
@@ -163,6 +165,12 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
     if (i !== undefined && j !== undefined) required.push([i, j])
   }
   const met = required.map(() => false)
+  const offRounds = new Map<number, Set<number>>()
+  rules?.unavailable?.forEach((rs, id) => {
+    const i = idxOf.get(id)
+    if (i !== undefined) offRounds.set(i, rs)
+  })
+  const canPlay = (i: number, r: number) => !offRounds.get(i)?.has(r)
   const upperIdx = new Set<number>()
   rules?.upperC?.forEach((id) => {
     const i = idxOf.get(id)
@@ -298,9 +306,9 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
     let placed = 0
     required.forEach(([a, b], k) => {
       if (met[k] || rs.matches.length >= courts) return
-      if (rs.used.has(a) || rs.used.has(b) || games[a] >= cap || games[b] >= cap) return
+      if (rs.used.has(a) || rs.used.has(b) || games[a] >= cap || games[b] >= cap || !canPlay(a, r) || !canPlay(b, r)) return
       const free: number[] = []
-      for (let i = 0; i < n; i++) if (!rs.used.has(i) && games[i] < cap) free.push(i)
+      for (let i = 0; i < n; i++) if (!rs.used.has(i) && games[i] < cap && canPlay(i, r)) free.push(i)
       const c = findBest(a, free, 'cross', r, b)
       if (c) {
         place(rs, c)
@@ -318,7 +326,7 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
     let placed = 0
     while (rs.matches.length < courts) {
       const free: number[] = []
-      for (let i = 0; i < n; i++) if (!rs.used.has(i) && games[i] < cap) free.push(i)
+      for (let i = 0; i < n; i++) if (!rs.used.has(i) && games[i] < cap && canPlay(i, r)) free.push(i)
       if (free.length < 4) break
       // Scarce players (few compatible opponents) and players with few games go first.
       const ranked = free

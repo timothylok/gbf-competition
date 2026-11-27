@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
-import { compileRules, parseRules, partnerKey, type RulePlayer } from '../../lib/pairing-rules'
+import { compileRules, parseRules, partnerKey, unavailableRounds, type RulePlayer } from '../../lib/pairing-rules'
 import { generatePlan, type SchedPlayer } from '../../lib/scheduler'
 import { lineupIssues, teamSetup, type LineupPlayer } from '../../lib/lineup'
 import { teamOf } from '../../lib/team'
@@ -35,7 +35,7 @@ describe('parseRules (the rules box)', () => {
     const { errors } = parseRules('avoid: Kim\nfrobnicate: x\navoid: grade:Z | Kim\navoid: team:X | Kim\npair: Kim\navoid: Kim, | Lee')
     assert.deepEqual(errors.map((e) => e.line), [1, 2, 3, 4, 5, 6])
     assert.match(errors[0].message, /avoid: <who> \| <who>/)
-    assert.match(errors[1].message, /avoid:", "pair:" or "upper:/)
+    assert.match(errors[1].message, /avoid:", "pair:", "upper:" or "available:/)
     assert.match(errors[2].message, /letter A to I/)
     assert.match(errors[3].message, /team must be F/)
     assert.match(errors[4].message, /pair: <name> \+ <name>/)
@@ -204,5 +204,32 @@ describe('Upper C preference', () => {
     const forbidden = new Set([1, 2, 3, 4].map((b) => partnerKey(b, 5)))
     const plan = generatePlan(ps, 3, { maxGames: 4, maxRounds: 12 }, 3, { forbidden, required: [], upperC: new Set([5, 6, 7, 8]) })
     for (const m of plan.matches) for (const [x, y] of [[m.a1, m.a2], [m.b1, m.b2]]) assert(!forbidden.has(partnerKey(x, y)))
+  })
+})
+
+describe('available: time windows', () => {
+  it('parses windows (24-hour, am/pm, end) and rejects bad ones', () => {
+    const ok = parseRules('available: Sam | 13:30-14:30, 3:30pm-end')
+    assert.deepEqual(ok.errors, [])
+    const c = compileRules(ok, ROSTER)
+    assert.deepEqual(c.availability.get(2), [[810, 870], [930, 1440]])
+    assert.equal(parseRules('available: Sam | 14:30-13:30').errors.length, 1, 'ends before it starts')
+    assert.equal(parseRules('available: Sam | soon').errors.length, 1)
+    assert.equal(parseRules('available: Sam').errors.length, 1)
+  })
+  it('a round counts only when it starts and finishes inside a window', () => {
+    // start 12:00, 15 min warm-up, 15 min slots: round 1 = 12:15-12:30 ... round 7 = 13:45-14:00
+    const off = unavailableRounds(new Map([[1, [[810, 870], [930, 1440]]]]), '12:00', 15, 16)
+    const on = [...Array(16)].map((_, i) => i + 1).filter((r) => !off.get(1)!.has(r))
+    assert.deepEqual(on, [6, 7, 8, 9, 14, 15, 16]) // 13:30-14:30 = rounds 6-9; 15:30 = round 14 onward
+  })
+  it('the draw never schedules the player outside the windows, and still gives everyone games', () => {
+    const ps: SchedPlayer[] = []
+    for (const team of ['F', 'R'] as const) for (let k = 0; k < 12; k++) ps.push({ id: ps.length + 1, gender: k % 2 ? 'F' : 'M', grade: 3 + (k % 2), team })
+    const id = ps[0].id
+    const off = unavailableRounds(new Map([[id, [[810, 870], [930, 1440]]]]), '12:00', 15, 19)
+    const plan = generatePlan(ps, 5, { maxGames: 6, maxRounds: 19 }, 4, { forbidden: new Set(), required: [], unavailable: off })
+    for (const m of plan.matches) if ([m.a1, m.a2, m.b1, m.b2].includes(id)) assert(!off.get(id)!.has(m.round), `round ${m.round}`)
+    assert((plan.gamesPerPlayer.get(id) ?? 0) >= 3, 'plays in the windows')
   })
 })

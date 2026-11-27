@@ -9,7 +9,7 @@ import { back, parsePlayerLines } from './action-utils'
 import { parseGrade } from './grade'
 import { isForeignKeyViolation, isUniqueViolation } from './db-errors'
 import { generatePlan } from './scheduler'
-import { compileRules, parseRules } from './pairing-rules'
+import { compileRules, parseRules, unavailableRounds } from './pairing-rules'
 import { teamOf } from './team'
 import { maxRoundsFor, roundsIn } from './time'
 import type { Key } from './i18n'
@@ -231,7 +231,7 @@ export async function generateSchedule(fd: FormData) {
   const parsedRules = parseRules(comps[0].pairing_rules)
   const compiledRules = compileRules(parsedRules, rows.map((p) => ({ id: p.id, nickname: p.nickname, gender: p.gender, grade: p.grade })))
   if (parsedRules.errors.length || compiledRules.problems.length) back(path, 'err', 'badrules')
-  const plan = generatePlan(players, comps[0].courts, { maxGames: r.data.maxGames, maxRounds }, r.data.seed, { forbidden: compiledRules.forbidden, required: compiledRules.required, upperC: compiledRules.upperC })
+  const plan = generatePlan(players, comps[0].courts, { maxGames: r.data.maxGames, maxRounds }, r.data.seed, { forbidden: compiledRules.forbidden, required: compiledRules.required, upperC: compiledRules.upperC, unavailable: unavailableRounds(compiledRules.availability, comps[0].start_time, comps[0].slot_minutes, maxRounds) })
   if (plan.matches.length === 0) back(path, 'err', 'players')
 
   // One statement: delete the old draw and insert the new one atomically.
