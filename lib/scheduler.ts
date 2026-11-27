@@ -68,6 +68,8 @@ export interface Plan {
   gamesPerPlayer: Map<number, number>
   /** Players with fewer games than the maximum. */
   underCap: number[]
+  /** Players who play more than one cross doubles match (the draw keeps this to one each unless it cannot). */
+  crossExceptions: { id: number; count: number }[]
   /** Required pairs the draw could not schedule. */
   unmetPairs: [number, number][]
   warnings: string[]
@@ -78,6 +80,8 @@ const GRADE_C = 3
 const GRADE_D = 4
 /** Cost of pairing a B player with a lower C player when an Upper C player could do it (tuned against the 25 of a mixed-grade match). */
 const UPPER_COST = 40
+/** A player's second cross doubles match: so costly that the draw only does it when nothing else is possible. */
+const CROSS_REPEAT_COST = 300
 /** How much cheaper women's doubles is (and how much dearer mixed is) for a woman who prefers women's doubles. */
 const WD_BONUS = 25
 
@@ -148,6 +152,8 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
   const spareTeam: 'F' | 'R' | null = teamsActive ? (nF > n - nF ? 'F' : nF < n - nF ? 'R' : null) : null
 
   const games = new Array<number>(n).fill(0)
+  /** Cross doubles (sides of different types) played so far: each player should have at most one. */
+  const crossGames = new Array<number>(n).fill(0)
   const partnerHist = new Map<number, number>()
   const oppHist = new Map<number, number>()
   const rounds: RoundState[] = []
@@ -294,6 +300,7 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
           for (const u of [anchor, p]) for (const v of [x, y]) cost += (oppHist.get(key(u, v)) ?? 0) * 2
           cost += partnerPenalty(anchor, p) + partnerPenalty(x, y) + upperPenalty(anchor, p) + upperPenalty(x, y)
           cost += 0.6 * (games[p] + games[x] + games[y]) + 0.9 * (adjacent(p, r) + adjacent(x, r) + adjacent(y, r))
+          if (kind === 'HD') for (const i of ids) if (crossGames[i] >= 1) cost += CROSS_REPEAT_COST
           // Preferred women: women's doubles is cheaper and mixed doubles dearer.
           if (wdIdx.size > 0 && (kind === 'WD' || kind === 'XD')) for (const i of ids) if (wdIdx.has(i)) cost += kind === 'WD' ? -WD_BONUS : WD_BONUS
           cost += rand() * 0.05
@@ -310,6 +317,7 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
     for (const i of [...found.a, ...found.b]) {
       rs.used.add(i)
       games[i]++
+      if (found.kind === 'HD') crossGames[i]++
     }
     partnerHist.set(key(found.a[0], found.a[1]), (partnerHist.get(key(found.a[0], found.a[1])) ?? 0) + 1)
     partnerHist.set(key(found.b[0], found.b[1]), (partnerHist.get(key(found.b[0], found.b[1])) ?? 0) + 1)
@@ -431,19 +439,20 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
     closeCount: counts.close,
     gamesPerPlayer: new Map(P.map((p, i) => [p.id, games[i]])),
     underCap,
+    crossExceptions: P.flatMap((p, i) => (crossGames[i] > 1 ? [{ id: p.id, count: crossGames[i] }] : [])),
     unmetPairs: required.filter((_, k) => !met[k]).map(([a, b]) => [P[a].id, P[b].id] as [number, number]),
     warnings,
     // Lower is better, compared left to right: players short of the cap, then fewest games, then total games.
-    rank: [met.filter((m) => !m).length, underCap.length, cap - Math.min(...games), -total, counts.HD + counts.filler, counts.close, repeats, rounds.length],
+    rank: [met.filter((m) => !m).length, underCap.length, crossGames.filter((c) => c > 1).length, cap - Math.min(...games), -total, counts.HD + counts.filler, counts.close, repeats, rounds.length],
   }
 }
 
-const ATTEMPTS = 14
+const ATTEMPTS = 30
 const POOL_LIMIT = 14
 
 /**
  * Build a draw. Tries several seeds and keeps the best: first the one that meets every required pair, then the one that
- * gives the most players their full games. Pairing rules are never broken; a player may get fewer games instead.
+ * has no player with a second cross doubles match, then the one that gives the most players their full games. Pairing rules are never broken; a player may get fewer games instead.
  */
 export function generatePlan(players: SchedPlayer[], courts: number, targets: Targets, seed: number, rules?: SchedRules): Plan {
   let best: (Plan & { rank: number[] }) | null = null

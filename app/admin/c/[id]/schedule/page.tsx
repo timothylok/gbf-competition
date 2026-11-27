@@ -79,12 +79,22 @@ export default async function SchedulePage({ params, searchParams }: { params: {
     return p ? { id: p.id, gender: p.gender, grade: p.grade, team: teamOf(p.nickname), upper: p.upper_c } : null
   }
 
+  // Cross doubles limit: each player plays at most one. Counted from the saved matches, so a hand edit is reflected.
+  const crossBy = new Map<number, number[]>()
+  for (const m of matches) {
+    if (m.status === 'cancelled' || matchKind(m, info) !== 'HD') continue
+    for (const i of [m.a1, m.a2, m.b1, m.b2]) crossBy.set(i, [...(crossBy.get(i) ?? []), m.round])
+  }
+  const crossOver = [...crossBy.entries()].filter(([, r]) => r.length > 1).sort((a, b) => b[1].length - a[1].length)
+  const crossTotal = matches.filter((m) => m.status !== 'cancelled' && matchKind(m, info) === 'HD').length
+
   const warn = (m: Match): string[] => {
     const out: string[] = []
     const ids = [m.a1, m.a2, m.b1, m.b2]
     if (m.round > maxRounds) out.push(t('afterEnd'))
     const same = matches.filter((o) => o.id !== m.id && o.round === m.round && o.status !== 'cancelled')
     if (same.some((o) => o.court === m.court || ids.some((i) => [o.a1, o.a2, o.b1, o.b2].includes(i)))) out.push(t('clash'))
+    if (matchKind(m, info) === 'HD' && ids.some((i) => (crossBy.get(i)?.length ?? 0) > 1)) out.push(t('crossMany'))
     const [a1, a2, b1, b2] = ids.map(lp)
     if (a1 && a2 && b1 && b2) {
       const issues = lineupIssues(m.event, [a1, a2], [b1, b2], setup, compiled.forbidden)
@@ -159,6 +169,18 @@ export default async function SchedulePage({ params, searchParams }: { params: {
           {compiled.required.map(([a, b]) => (
             <span key={`${a}-${b}`}> · {rounds.length > 0 ? (partnered(a, b) ? '✓' : '✗') : ''} {nm(a)} + {nm(b)} ({t('rulesMust')})</span>
           ))}
+        </p>
+      )}
+      {crossTotal > 0 && (
+        <p className="mb-4 text-sm text-ink" data-testid="cross-limit">
+          <span className="font-semibold">{t('crossLimit')}:</span> {crossTotal} {t('crossMatches')} ·{' '}
+          {crossOver.length === 0 ? (
+            <span>✓ {t('crossOk')}</span>
+          ) : (
+            <span className="rounded bg-sun px-1.5 py-0.5 font-semibold" data-testid="cross-exceptions">
+              {t('crossExceptions')}: {crossOver.map(([i, r]) => `${nm(i)} (${r.length}: ${t('round')} ${r.join(', ')})`).join('; ')}
+            </span>
+          )}
         </p>
       )}
       {rounds.length === 0 && <p className="mb-6 text-sm text-ink/75">{t('noMatches')}</p>}

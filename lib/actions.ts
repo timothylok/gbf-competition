@@ -266,9 +266,9 @@ export async function generateSchedule(fd: FormData) {
   await audit(
     s.name,
     'schedule.generate',
-    `#${id}: ${plan.matches.length} matches in ${plan.rounds} rounds, seed ${r.data.seed}, max ${r.data.maxGames} games (handicap ${plan.hdCount}, filler ${plan.fillerCount}, under cap ${plan.underCap.length}, rules: ${compiledRules.forbidden.size} avoid pairs, ${compiledRules.required.length - plan.unmetPairs.length}/${compiledRules.required.length} required pairs met)`,
+    `#${id}: ${plan.matches.length} matches in ${plan.rounds} rounds, seed ${r.data.seed}, max ${r.data.maxGames} games (handicap ${plan.hdCount}, filler ${plan.fillerCount}, under cap ${plan.underCap.length}, cross doubles over 1: ${plan.crossExceptions.length}, rules: ${compiledRules.forbidden.size} avoid pairs, ${compiledRules.required.length - plan.unmetPairs.length}/${compiledRules.required.length} required pairs met)`,
   )
-  back(path, 'ok', plan.warnings.length || plan.unmetPairs.length ? 'generated_warn' : 'generated')
+  back(path, 'ok', plan.crossExceptions.length ? 'generated_cross' : plan.warnings.length || plan.unmetPairs.length ? 'generated_warn' : 'generated')
 }
 
 const matchSchema = z.object({

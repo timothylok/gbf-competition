@@ -217,3 +217,37 @@ describe('teams and hand-made line-ups', () => {
     assert.deepEqual(lineupIssues('XD', [P('M', 3, 'R'), P('M', 3, 'R')], [P('M', 3, 'R'), P('M', 3, 'R')], none), ['mismatch'])
   })
 })
+
+describe('cross doubles limit: at most one per player', () => {
+  const mk = (nW: number, nM: number, team: 'F' | 'R', start: number): SchedPlayer[] => [
+    ...[...Array(nW)].map((_, i): SchedPlayer => ({ id: start + i, gender: 'F', grade: 3, team })),
+    ...[...Array(nM)].map((_, i): SchedPlayer => ({ id: start + nW + i, gender: 'M', grade: 3, team })),
+  ]
+  const crossCounts = (ps: SchedPlayer[], plan: ReturnType<typeof generatePlan>) => {
+    const g = new Map(ps.map((p) => [p.id, p.gender]))
+    const counts = new Map<number, number>()
+    for (const m of plan.matches) {
+      const ids = [m.a1, m.a2, m.b1, m.b2]
+      const wa = [m.a1, m.a2].filter((i) => g.get(i) === 'F').length
+      const wb = [m.b1, m.b2].filter((i) => g.get(i) === 'F').length
+      if (wa !== wb) for (const i of ids) counts.set(i, (counts.get(i) ?? 0) + 1)
+    }
+    return counts
+  }
+  it('keeps every player to one cross doubles match when that is possible', () => {
+    const ps = [...mk(8, 4, 'F', 1), ...mk(6, 6, 'R', 100)]
+    const plan = generatePlan(ps, 4, { maxGames: 2, maxRounds: 19 }, 1)
+    const counts = crossCounts(ps, plan)
+    assert(counts.size > 0, 'the surplus of Philippines women forces some cross doubles')
+    assert([...counts.values()].every((c) => c <= 1), 'nobody plays two')
+    assert.deepEqual(plan.crossExceptions, [])
+  })
+  it('lists the exceptions when it cannot be kept, matching the matches actually drawn', () => {
+    const ps = [...mk(6, 4, 'F', 1), ...mk(2, 8, 'R', 100)]
+    const plan = generatePlan(ps, 4, { maxGames: 3, maxRounds: 19 }, 1)
+    const counts = crossCounts(ps, plan)
+    const over = [...counts.entries()].filter(([, c]) => c > 1).map(([id, count]) => ({ id, count })).sort((a, b) => a.id - b.id)
+    assert(over.length > 0, 'twelve extra women-games cannot fit one each for six women')
+    assert.deepEqual([...plan.crossExceptions].sort((a, b) => a.id - b.id), over)
+  })
+})

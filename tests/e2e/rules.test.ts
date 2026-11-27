@@ -53,7 +53,8 @@ async function readSchedule(page: Page, comp: number): Promise<Row[]> {
           kind: (spans[1]?.textContent ?? '').trim(),
           names: (spans[2]?.textContent ?? '').trim().split(/\s*\/\s*|\s+vs\s+/).map((x) => x.trim()).filter(Boolean).map((x) => x.replace(/ - \([A-I]\)$/, '')),
           headStart: spans.map((x) => x.textContent?.trim() ?? '').find((x) => /^Start/.test(x)) ?? null,
-          warnings: [...li.querySelectorAll('span[title]')].map((x) => x.getAttribute('title') ?? ''),
+          // the cross doubles limit has its own test and its own box, so its chip is not counted with the line-up warnings
+          warnings: [...li.querySelectorAll('span[title]')].map((x) => x.getAttribute('title') ?? '').filter((x) => !/more than one cross doubles/i.test(x)),
         }
       })
     }),
@@ -194,6 +195,18 @@ describe(`game rules: Philippines vs the rest, grades, handicap (${N} players, $
     for (const m of rows) assert.equal(m.headStart, expectedStart(m.names), m.names.join(' / '))
   })
 
+  it('shows the cross doubles limit (at most one per player) and lists any exceptions', async () => {
+    const counts = new Map<string, number>()
+    for (const m of rows.filter((r) => r.kind === 'Cross doubles')) for (const n of m.names) counts.set(n, (counts.get(n) ?? 0) + 1)
+    const over = [...counts.values()].filter((c) => c > 1).length
+    await go(page, `/admin/c/${comp}/schedule`)
+    const box = await page.$eval('[data-testid=cross-limit]', (e) => e.textContent ?? '')
+    assert.match(box, /Cross doubles limit \(at most one per player\)/)
+    const listed = await page.$$eval('[data-testid=cross-exceptions]', (els) => (els[0]?.textContent ?? '').replace(/^\s*Exceptions:\s*/, '').split('; ').filter(Boolean).length)
+    assert.equal(listed, over, over === 0 ? 'no exceptions, none listed' : 'every player with more than one is listed')
+    if (over === 0) assert.match(box, /everyone is within the limit/)
+  })
+
   it('the Players tab saves "Happy to partner D grade" and the draw still works with it', async () => {
     await go(page, `/admin/c/${comp}/players`)
     await page.evaluate(() => {
@@ -295,18 +308,30 @@ describe(`game rules: Philippines vs the rest, grades, handicap (${N} players, $
   })
 
   it('warns on a hand-made match with grades two apart or Philippines vs Philippines, and gives a mixed-vs-men line-up its starting score', async () => {
+    /** A free court and round (nobody in the line-up playing, the court empty), so only the warnings under test can appear. */
+    const handMade = async (lineup: Record<string, string>, event: string) => {
+      const names = Object.values(lineup)
+      const rows = await readSchedule(page, comp)
+      for (let round = 1; round <= 19; round++) {
+        const inRound = rows.filter((r) => r.round === round)
+        if (inRound.some((r) => r.names.some((n) => names.includes(n)))) continue
+        for (let court = 1; court <= COURTS; court++) {
+          if (inRound.some((r) => r.court === court)) continue
+          await addMatchByHand(lineup, String(round), String(court), event)
+          assert.match((await banner(page)) ?? '', /Created/)
+          return (await readSchedule(page, comp)).find((r) => r.round === round && r.court === court)!
+        }
+      }
+      throw new Error('no free court and round for the hand-made match')
+    }
     // B and D together: more than one grade apart
-    await addMatchByHand({ a1: pick('B', 'F', 'M', 0), a2: pick('C', 'F', 'M', 3), b1: pick('D', 'R', 'M', 0), b2: pick('C', 'R', 'M', 3) }, '15', '1', 'MD')
-    assert.match((await banner(page)) ?? '', /Created/)
-    const far = (await readSchedule(page, comp)).find((r) => r.round === 15)!
+    const far = await handMade({ a1: pick('B', 'F', 'M', 0), a2: pick('C', 'F', 'M', 3), b1: pick('D', 'R', 'M', 0), b2: pick('C', 'R', 'M', 3) }, 'MD')
     assert(far.warnings.some((w) => /more than one grade apart/.test(w)), `grade warning, got ${JSON.stringify(far.warnings)}`)
     // Philippines vs Philippines: the rest is the larger team, so this is not an allowed filler
-    await addMatchByHand({ a1: pick('C', 'F', 'M', 4), a2: pick('C', 'F', 'M', 5), b1: pick('C', 'F', 'M', 6), b2: pick('B', 'F', 'M', 1) }, '16', '1', 'MD')
-    const same = (await readSchedule(page, comp)).find((r) => r.round === 16)!
+    const same = await handMade({ a1: pick('C', 'F', 'M', 4), a2: pick('C', 'F', 'M', 5), b1: pick('C', 'F', 'M', 6), b2: pick('B', 'F', 'M', 1) }, 'MD')
     assert(same.warnings.some((w) => /Philippines/.test(w)), `team warning, got ${JSON.stringify(same.warnings)}`)
     // one woman + one man against two men (all C): 8 vs 12, so the mixed side starts 2 : 0, no warnings
-    await addMatchByHand({ a1: pick('C', 'F', 'F', 0), a2: pick('C', 'F', 'M', 6), b1: pick('C', 'R', 'M', 4), b2: pick('C', 'R', 'M', 5) }, '17', '1', 'XD')
-    const half = (await readSchedule(page, comp)).find((r) => r.round === 17)!
+    const half = await handMade({ a1: pick('C', 'F', 'F', 0), a2: pick('C', 'F', 'M', 6), b1: pick('C', 'R', 'M', 4), b2: pick('C', 'R', 'M', 5) }, 'XD')
     assert.equal(half.kind, 'Cross doubles')
     assert.equal(half.headStart, 'Start 2 : 0')
     assert.equal(half.warnings.length, 0, 'a women-vs-men line-up is not flagged')
