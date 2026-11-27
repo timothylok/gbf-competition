@@ -258,7 +258,8 @@ export async function generateSchedule(fd: FormData) {
     return `($1,$${n - 6},$${n - 5},$${n - 4},$${n - 3},$${n - 2},$${n - 1},$${n})`
   })
   await query(
-    `WITH d AS (DELETE FROM matches WHERE competition_id=$1)
+    `WITH d AS (DELETE FROM matches WHERE competition_id=$1),
+          u AS (UPDATE competitions SET schedule_generated_at = now() WHERE id=$1)
      INSERT INTO matches (competition_id, event, round, court, a1, a2, b1, b2) VALUES ${values.join(',')}`,
     params,
   )

@@ -57,6 +57,10 @@ export interface PdfInput {
   year: number
   /** e.g. "Printed 27 Nov 2026, 14:05 NZDT (New Zealand time)", shown in the footer of every page. */
   printedAt?: string
+  /** e.g. "Schedule generated: 27 Nov 2026, 14:05 NZDT", shown in the header of every page. */
+  generatedAt?: string
+  /** For tests: called with the page number (1-based) and every text drawn on it. */
+  trace?: (page: number, text: string) => void
 }
 
 /** Every character the PDF can draw: all the text from the schedule and the labels, plus plain ASCII. */
@@ -64,7 +68,7 @@ function textToDraw(input: PdfInput): string {
   const { comp, groups, t } = input
   const keys = ['MD', 'XD', 'WD', 'HD', 'courtsShort', 'planMatches', 'warmup', 'allCourts', 'pdfGrades', 'pdfCont', 'event', 'sideA', 'sideB', 'textTime', 'court', 'footerRights', 'footerClause', 'footerCredit', 'noMatches'] as const
   const ascii = String.fromCharCode(...Array.from({ length: 95 }, (_, k) => 32 + k)) // plain ASCII, always available
-  const parts: string[] = [comp.name, comp.event_date, ...keys.map((k) => t(k)), input.printedAt ?? '', ascii, '·–…©']
+  const parts: string[] = [comp.name, comp.event_date, ...keys.map((k) => t(k)), input.printedAt ?? '', input.generatedAt ?? '', ascii, '·–…©']
   for (const g of groups) {
     parts.push(g.title)
     for (const r of g.rows) parts.push(r.when, r.courtLabel, r.kind, r.note, r.sideA, r.sideB, ...(r.a ?? []).flatMap((p) => [p.name, p.grade]), ...(r.b ?? []).flatMap((p) => [p.name, p.grade]))
@@ -132,6 +136,7 @@ class Writer {
     const font = opts.bold ? this.fonts.bold : this.fonts.regular
     const str = opts.maxWidth ? fit(s, font, size, opts.maxWidth, this.fonts) : safe(s, this.fonts)
     const width = font.widthOfTextAtSize(str, size)
+    this.input.trace?.(this.pages.indexOf(this.page) + 1, str)
     this.page.drawText(str, { x: opts.align === 'right' ? x - width : x, y: yTop - size, size, font, color: rgbOf(opts.color ?? INK) })
     return width
   }
@@ -182,7 +187,9 @@ class Writer {
 
   runningHeader() {
     const { comp } = this.input
-    this.text(`${comp.name} · ${comp.event_date}`, M, this.y, 9, { bold: true, color: STONE, maxWidth: CW })
+    const { generatedAt } = this.input
+    this.text(`${comp.name} · ${comp.event_date}`, M, this.y, 9, { bold: true, color: STONE, maxWidth: generatedAt ? CW - 250 : CW })
+    if (generatedAt) this.text(generatedAt, W - M, this.y, 8, { bold: true, color: STONE, align: 'right', maxWidth: 246 })
     this.y -= 14
     this.line(M, this.y, W - M, INK, 1)
     this.y -= 8
@@ -194,7 +201,13 @@ class Writer {
     this.y -= 24
     const sub = `${comp.courts} ${t('courtsShort')} · ${matches} ${t('planMatches')} · ${comp.slot_minutes} min · ${t('warmup')} ${warmupRange(comp.start_time)} · ${t('pdfGrades')}`
     this.text(sub, M, this.y, 8.5, { color: STONE, maxWidth: CW })
-    this.y -= 16
+    this.y -= 13
+    const { generatedAt } = this.input
+    if (generatedAt) {
+      this.text(generatedAt, M, this.y, 8.5, { bold: true, maxWidth: CW })
+      this.y -= 13
+    }
+    this.y -= 3
     let x = M
     for (const k of ['MD', 'XD', 'WD', 'HD'] as const) x += this.chip(t(k), k, x, this.y, 150) + 6
     this.y -= 18

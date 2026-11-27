@@ -14,6 +14,7 @@ export const SCHEMA_SQL = [
   )`,
   `ALTER TABLE competitions ADD COLUMN IF NOT EXISTS end_time TEXT`,
   `ALTER TABLE competitions ADD COLUMN IF NOT EXISTS pairing_rules TEXT`,
+  `ALTER TABLE competitions ADD COLUMN IF NOT EXISTS schedule_generated_at TIMESTAMPTZ`,
   `CREATE TABLE IF NOT EXISTS players (
     id SERIAL PRIMARY KEY,
     competition_id INT NOT NULL REFERENCES competitions(id) ON DELETE CASCADE,

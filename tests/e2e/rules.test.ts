@@ -312,6 +312,16 @@ describe(`game rules: Philippines vs the rest, grades, handicap (${N} players, $
     assert.equal(half.warnings.length, 0, 'a women-vs-men line-up is not flagged')
   })
 
+  it('records when the schedule was generated, shows it in New Zealand time, and the PDF downloads', async () => {
+    await go(page, `/admin/c/${comp}/schedule`)
+    const first = await page.$eval('[data-testid=generated-at]', (e) => e.textContent ?? '')
+    assert.match(first, /^Schedule generated: \d{1,2} \w{3} \d{4}, \d\d:\d\d NZ(DT|ST)$/)
+    const pdf = await fetch(`${BASE}/schedule/pdf?c=${comp}`)
+    assert.equal(pdf.status, 200)
+    assert.equal(pdf.headers.get('content-type'), 'application/pdf')
+    assert((await pdf.arrayBuffer()).byteLength > 5000)
+  })
+
   it('the Copy text tab gives a plain-text schedule grouped by court or by time, sorted by time', async () => {
     const total = (await readSchedule(page, comp)).length // includes the hand-made matches from the tests above
     await go(page, `/admin/c/${comp}/text`)

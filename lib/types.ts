@@ -15,6 +15,8 @@ export interface Competition {
   end_time: string | null
   /** Pairing rules, one per line (see lib/pairing-rules.ts). Null = none. */
   pairing_rules: string | null
+  /** When the schedule was last generated (null = never, or before this was recorded). */
+  schedule_generated_at: Date | string | null
   status: 'draft' | 'live' | 'finished'
 }
 export interface Player {

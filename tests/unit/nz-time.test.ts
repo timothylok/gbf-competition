@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { dictionaries } from '../../lib/i18n'
-import { nzTimestamp, printedLine } from '../../lib/nz-time'
+import { generatedLine, nzTimestamp, printedLine } from '../../lib/nz-time'
 
 describe('New Zealand print timestamp', () => {
   it('uses NZDT in summer and NZST in winter, whatever the server zone is', () => {
@@ -15,5 +15,13 @@ describe('New Zealand print timestamp', () => {
     const d = new Date('2026-11-27T01:05:00Z')
     assert.equal(printedLine((k) => dictionaries.en[k], d), 'Printed 27 Nov 2026, 14:05 NZDT (New Zealand time)')
     assert.match(printedLine((k) => dictionaries.zh[k], d), /^列印時間：.*14:05 NZDT.*紐西蘭時間/)
+  })
+  it('makes the "Schedule generated" line, empty when nothing was recorded', () => {
+    const t = (k: 'scheduleGenerated') => dictionaries.en[k]
+    assert.equal(generatedLine(t, new Date('2026-11-27T01:05:00Z')), 'Schedule generated: 27 Nov 2026, 14:05 NZDT')
+    assert.equal(generatedLine(t, '2026-07-01T01:05:00Z'), 'Schedule generated: 1 Jul 2026, 13:05 NZST', 'also accepts a string')
+    assert.equal(generatedLine(t, null), '')
+    assert.equal(generatedLine(t, 'not a date'), '')
+    assert.match(generatedLine((k) => dictionaries.zh[k], new Date('2026-11-27T01:05:00Z')), /^賽程生成時間：.*14:05 NZDT/)
   })
 })

@@ -2,7 +2,7 @@ import 'server-only'
 import { query } from './db'
 import type { Competition, Match, Player } from './types'
 
-const COMP_COLS = 'id, name, event_date, start_time, courts, slot_minutes, end_time, pairing_rules, status'
+const COMP_COLS = 'id, name, event_date, start_time, courts, slot_minutes, end_time, pairing_rules, schedule_generated_at, status'
 
 export async function listCompetitions(includeDrafts: boolean): Promise<Competition[]> {
   return query<Competition>(

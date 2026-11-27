@@ -59,6 +59,26 @@ describe('buildSchedulePdf', () => {
     assert(zhBytes.length < 200_000)
   })
 
+  it('prints "Schedule generated" in the header of every page', async () => {
+    const generatedAt = 'Schedule generated: 27 Nov 2026, 14:05 NZDT'
+    for (const by of ['court', 'time'] as const) {
+      const seen = new Map<number, string[]>()
+      const bytes = await buildSchedulePdf({
+        comp, groups: [court(1, 60), court(2, 20)], by, t: en, year: 2026, generatedAt,
+        trace: (page, text) => seen.set(page, [...(seen.get(page) ?? []), text]),
+      })
+      const pages = (await PDFDocument.load(bytes)).getPageCount()
+      assert(pages >= 3, `${by}: several pages`)
+      for (let p = 1; p <= pages; p++) {
+        assert.equal((seen.get(p) ?? []).filter((x) => x === generatedAt).length, 1, `${by}: page ${p} shows the generated time once`)
+      }
+    }
+    // no recorded time: nothing is drawn
+    const none: string[] = []
+    await buildSchedulePdf({ comp, groups: [court(1, 5)], by: 'court', t: en, year: 2026, trace: (_p, text) => none.push(text) })
+    assert(!none.some((x) => x.startsWith('Schedule generated')))
+  })
+
   it('flows a long court onto more pages instead of running off the bottom', async () => {
     const bytes = await buildSchedulePdf({ comp, groups: [court(1, 60)], by: 'court', t: en, year: 2026 })
     assert((await PDFDocument.load(bytes)).getPageCount() >= 3, '60 rows need several pages')

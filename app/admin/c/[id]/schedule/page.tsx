@@ -9,6 +9,7 @@ import { compileRules, parseRules } from '@/lib/pairing-rules'
 import { ConfirmButton } from '@/components/ConfirmButton'
 import { addMatch, deleteMatch, generateSchedule, saveMatch } from '@/lib/actions'
 import { getT, type T } from '@/lib/i18n'
+import { generatedLine } from '@/lib/nz-time'
 import { getCompetition, getMatches, getPlayers } from '@/lib/queries'
 import { estimatePlan } from '@/lib/scheduler'
 import { teamOf } from '@/lib/team'
@@ -113,6 +114,7 @@ export default async function SchedulePage({ params, searchParams }: { params: {
         <input type="hidden" name="id" value={id} />
         <h2 className="mb-1 font-bold text-ink">{t('generate')}</h2>
         <p className="mb-3 text-sm text-ink/75">{t('generateHelp')}</p>
+        {comp.schedule_generated_at && <p className="mb-3 text-sm font-semibold text-ink" data-testid="generated-at">{generatedLine(t, comp.schedule_generated_at)}</p>}
         <p className="mb-3 text-sm font-medium text-ink">
           {t('planPreview')}: {players.length} {t('playersCount')} ({men} {t('menCount')}, {women} {t('womenCount')}
           {setup.active ? `; ${t('teamF')} ${nF}, ${t('teamR')} ${players.length - nF}` : ''}) → {t('planUpTo')} {plan.matches} {t('planMatches')}
