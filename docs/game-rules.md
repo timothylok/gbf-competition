@@ -16,8 +16,8 @@ Rules for GBF casual competitions as the app runs them. Items marked **To confir
   - men vs men (men's doubles)
   - women vs women (women's doubles)
   - one man and one woman against one man and one woman (mixed doubles)
-- When that is not possible, two women may play two men with a head start (**handicap**, below). It is the last resort, mainly because the Philippines women outnumber the rest's women.
-- Several matches run at the same time, one per court. In each round men's doubles use the lower court numbers, then mixed, women's and handicap matches.
+- When that is not possible, two women may play two men (**cross doubles**, with the starting score below). It is the last resort, mainly because the Philippines women outnumber the rest's women.
+- Several matches run at the same time, one per court. In each round men's doubles use the lower court numbers, then mixed, women's and cross doubles.
 
 ## Grades
 
@@ -30,7 +30,7 @@ Rules for GBF casual competitions as the app runs them. Items marked **To confir
 - No player is in two matches in the same round, and no court is used twice in a round.
 - Partners and opponents are not repeated where it can be avoided, and players who just sat out are preferred for the next round.
 - Some players are happy to partner D-grade players. Tick **Happy to partner D grade** for them on the Players tab, and the draw prefers them as partners for D-grade players.
-- The draw is built to give as many players as possible their full games, then to use as few "one grade apart", handicap and filler matches as it can.
+- The draw is built to give as many players as possible their full games, then to use as few "one grade apart", cross doubles and filler matches as it can.
 - Organisers can edit any match (players, court, round), add matches by hand, or regenerate the draw until play starts. A hand-made or edited match shows an amber warning if the players are more than one grade apart, if it breaks the team rule, or if the match type does not fit.
 
 ## Pairing rules (per competition)
@@ -84,34 +84,32 @@ Standings are ranked by:
 
 Players still level after that share a rank, shown as `T-n` (for example T-3).
 
-## Head start (handicap)
+## Starting score (handicap)
 
-A head start evens up a match when one side is made up of women and the other of men. The women's side starts the game with extra points on the board; the men's side starts at 0.
+Every match has a starting score worked out from the gender and grade of all four players, whatever the match type:
+men's, women's or mixed doubles, or sides of different types (men vs women, men vs mixed, women vs mixed).
 
-**When it applies**
+**Player strength** (the men's figures already include 2 extra points for gender, counted once)
 
-- Two women against two men: full head start.
-- One woman plus one man against two men (only when an organiser sets it up by hand): half the full head start.
-- Any other line-up (for example mixed pairs on both sides, or all men): no head start.
+| Grade | Man | Woman |
+|---|---|---|
+| B | 14 | 6 |
+| Upper C | 8 | 3 |
+| C | 6 | 2 |
+| D | 4 | 1 |
 
-**How many points (two women against two men)**
-
-| Women's grade compared with the men's | Head start |
-|---|---|
-| Same grade (for example C women vs C men) | 4 points |
-| One grade lower (for example D women vs C men) | 6 points |
-
-- Each side's grade is the average of its players' grades (A = 1, B = 2, C = 3, D = 4), rounded to the nearest whole grade.
-- One woman plus one man against two men gets half: 2 points at the same grade, 3 points at one grade lower.
-- The draw only makes handicap matches where the head start is covered by this table.
+- Team strength = the two players' strengths added.
+- Handicap = the difference between the teams, halved and rounded up to a whole number. The weaker team starts with it; the stronger starts at 0. Equal teams start 0 : 0.
+- Example: man B + man B (28) against man C + man C (12) starts 0 : 8.
+- Upper C players are named in the pairing rules (`upper:`). Grades outside B, C and D show "Start: to be confirmed".
+- A handicap never makes a match allowed: B never meets D, and two C players (one of them Upper C) never play two D players.
+- Every possible line-up and its starting score is listed in [handicap-matrix.md](handicap-matrix.md).
 
 **How it counts**
 
-- Head start points are part of the score. They count in the result, points scored and points difference like any other points.
-- The app shows the head start on the match (for example "Women start +4") on the schedule, score-entry, copy-text and PDF screens, with its own coral colour. It does not add the points itself: the scorekeeper includes them when entering the score.
-- Handicap and women's doubles matches are stored as mixed doubles and appear on screen as **Handicap doubles** (coral) and **Women's doubles** (lilac). They are counted under the Mixed tab of the standings.
-
-**To confirm:** the head start when the women's side is a grade or more *stronger* than the men's, or two or more grades lower, and how to round when the two grades average exactly halfway.
+- Starting points are part of the score. They count in the result, points scored and points difference like any other points.
+- The app shows the starting score on every match (for example "Start 0 : 8", side A first) on the live, schedule, score-entry, copy-text and PDF screens. It does not add the points itself: the scorekeeper includes them when entering the score.
+- Matches whose sides are different types appear as **Cross doubles** (coral); four women as **Women's doubles** (lilac). Both are stored as mixed doubles and counted under the Mixed tab of the standings.
 
 ## Results and disputes
 

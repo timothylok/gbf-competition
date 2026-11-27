@@ -7,14 +7,14 @@ import { getT, type T } from '@/lib/i18n'
 import { getCompetition, getMatches, getPlayers } from '@/lib/queries'
 import { roundRange } from '@/lib/time'
 import { TONE } from '@/lib/event-tone'
-import { headStartOf, matchKind, type Lineup } from '@/lib/handicap'
+import { matchKind, startLabel, startScoreOf, type Lineup } from '@/lib/handicap'
 import type { Match } from '@/lib/types'
 
 function ScoreCard({ m, comp, nm, info, t, round, start }: { m: Match; comp: number; nm: (i: number) => string; info: Record<number, Lineup>; t: T; round: number; start: string }) {
   const locked = m.status === 'done' || m.status === 'cancelled'
   const kind = matchKind(m, info)
   const tone = TONE[kind]
-  const hs = headStartOf(m, info)
+  const ss = startScoreOf(m, info)
   const status =
     m.status === 'live'
       ? { label: t('mLive'), cls: 'live-badge' }
@@ -36,9 +36,9 @@ function ScoreCard({ m, comp, nm, info, t, round, start }: { m: Match; comp: num
         <span>{start}</span>
         <span className="ml-auto">{t(kind)}</span>
       </header>
-      {hs && (
+      {ss && (
         <p className="bg-paper/40 px-4 py-1 text-xs font-semibold text-ink">
-          {hs.covered ? `${t('headStart')}${hs.points} (${hs.side === 'a' ? t('sideA') : t('sideB')})` : t('headStartTbc')}
+          {startLabel(ss, t)}{ss.covered && ` (${t('sideA')} : ${t('sideB')})`}
         </p>
       )}
       <div className="divide-y divide-ink/10">

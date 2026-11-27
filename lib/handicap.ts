@@ -1,73 +1,90 @@
+import type { MatchKind } from './types'
+
 /**
- * Head start (handicap) for matches where women play against men, in whole points.
- *  - two women vs two men: full head start
- *  - one woman + one man vs two men: half (rounded down)
- *  - any other line-up: none
- * Skill order: B > Upper C > C > D. Upper C sits half a grade above C. A side's strength is the average of its two
- * players. Full head start for the women's side by how much stronger the men's side is (in grades):
- *    men one grade stronger +6, half a grade +5, level +4, women half a grade stronger +3, women one grade stronger +2.
- * Gaps in between (a quarter grade, from mixed-grade pairs) round to a whole point in favour of the weaker side.
- * Anything outside +2..+6 is not covered by the rules (0 points, shown as "to be confirmed").
+ * Starting score (handicap) for every match, from the gender and grade of all four players (docs/game-rules.md).
+ *
+ * Player strength (men's figures include the extra 2 points for gender, counted once):
+ *            B   Upper C   C   D
+ *   men     14      8      6   4
+ *   women    6      3      2   1
+ * Team strength = the two players added. Handicap = ceil(|A - B| / 2), given to the weaker team; equal teams start 0:0.
+ * Any match type can have one (men's, women's, mixed, or sides of different types). Grades other than B, C and D
+ * are not in the table, so a match with one of them shows "to be confirmed".
  */
 export interface Lineup {
   gender: 'M' | 'F'
   grade: number | null
-  /** Upper C: a C player ranked half a grade above the other C players. */
+  /** Upper C: a C player ranked above the other C players. */
   upper?: boolean
 }
-export interface HeadStart {
-  /** The side that starts ahead (the side with the women). */
-  side: 'a' | 'b'
-  /** Points that side starts with; 0 when the rules don't cover the grade gap. */
-  points: number
-  /** True when only one woman is on the side (half head start). */
-  half: boolean
-  /** False when the grade gap isn't covered by the rules, or a grade is missing. */
+export interface StartScore {
+  /** Points side A starts with. */
+  a: number
+  /** Points side B starts with. */
+  b: number
+  /** False when a player's grade is missing or not B, C or D. */
   covered: boolean
 }
 
-/**
- * On-screen kind of a match: women-vs-men line-ups are handicap (HD), four women is women's doubles (WD),
- * otherwise the stored event (MD or XD). HD and WD are stored as XD, so the database needs no change.
- */
-export function matchKind(m: { event: 'MD' | 'XD'; a1: number; a2: number; b1: number; b2: number }, info: Record<number, Lineup>) {
-  if (headStartOf(m, info)) return 'HD' as const
-  if ([m.a1, m.a2, m.b1, m.b2].every((i) => info[i]?.gender === 'F')) return 'WD' as const
-  return m.event
+const GRADE_B = 2
+const GRADE_C = 3
+const GRADE_D = 4
+export const STRENGTH = {
+  M: { B: 14, U: 8, C: 6, D: 4 },
+  F: { B: 6, U: 3, C: 2, D: 1 },
+} as const
+
+/** A player's strength, or null when the grade is not B, Upper C, C or D. */
+export function strength(p: Lineup): number | null {
+  const w = STRENGTH[p.gender]
+  if (p.grade === GRADE_B) return w.B
+  if (p.grade === GRADE_C) return p.upper ? w.U : w.C
+  if (p.grade === GRADE_D) return w.D
+  return null
 }
 
-export function headStartOf(m: { a1: number; a2: number; b1: number; b2: number }, info: Record<number, Lineup>): HeadStart | null {
+export function startScore(a: [Lineup, Lineup], b: [Lineup, Lineup]): StartScore {
+  const s = [...a, ...b].map(strength)
+  if (s.some((x) => x == null)) return { a: 0, b: 0, covered: false }
+  const sa = s[0]! + s[1]!
+  const sb = s[2]! + s[3]!
+  const points = Math.ceil(Math.abs(sa - sb) / 2)
+  return { a: sa < sb ? points : 0, b: sb < sa ? points : 0, covered: true }
+}
+
+export function startScoreOf(m: { a1: number; a2: number; b1: number; b2: number }, info: Record<number, Lineup>): StartScore | null {
   const [a1, a2, b1, b2] = [m.a1, m.a2, m.b1, m.b2].map((i) => info[i])
   if (!a1 || !a2 || !b1 || !b2) return null
-  return headStart([a1, a2], [b1, b2])
+  return startScore([a1, a2], [b1, b2])
 }
 
-export const FULL_SAME_GRADE = 4
-export const FULL_ONE_LOWER = 6
-export const FULL_WOMEN_ONE_STRONGER = 2
-
-/** Skill as a number, lower = stronger: the grade, with Upper C half a grade above C. */
-const skill = (p: Lineup): number | null => (p.grade == null ? null : p.grade === 3 && p.upper ? 2.5 : p.grade)
-const avgSkill = (p: [Lineup, Lineup]): number | null => {
-  const x = skill(p[0])
-  const y = skill(p[1])
-  return x == null || y == null ? null : (x + y) / 2
+/** "Start 0 : 8", or "Start: to be confirmed" when a grade is outside the table. */
+export function startLabel(s: StartScore, t: (k: 'startScore' | 'startTbc') => string): string {
+  return s.covered ? `${t('startScore')} ${s.a} : ${s.b}` : t('startTbc')
 }
 
-export function headStart(a: [Lineup, Lineup], b: [Lineup, Lineup]): HeadStart | null {
-  const wa = a.filter((p) => p.gender === 'F').length
-  const wb = b.filter((p) => p.gender === 'F').length
-  let side: 'a' | 'b'
-  let women: number
-  if (wa > 0 && wb === 0) [side, women] = ['a', wa]
-  else if (wb > 0 && wa === 0) [side, women] = ['b', wb]
-  else return null
-  const half = women === 1
-  const sa = avgSkill(side === 'a' ? a : b)
-  const sb = avgSkill(side === 'a' ? b : a)
-  // gap > 0: the men are stronger. Each grade is 2 points; a half point goes to the weaker side.
-  const raw = sa == null || sb == null ? null : 4 + 2 * (sa - sb)
-  const full = raw == null ? 0 : raw >= 4 ? Math.ceil(raw) : Math.floor(raw)
-  const covered = raw != null && full >= FULL_WOMEN_ONE_STRONGER && full <= FULL_ONE_LOWER
-  return { side, points: covered ? (half ? Math.floor(full / 2) : full) : 0, half, covered }
+/**
+ * On-screen kind of a match: men's (MD), women's (WD) and mixed (XD) doubles when both sides are the same type;
+ * sides of different types (men vs women, men vs mixed, women vs mixed) are cross doubles (HD). WD and HD are
+ * stored as XD, so the database needs no change.
+ */
+export function matchKind(m: { event: 'MD' | 'XD'; a1: number; a2: number; b1: number; b2: number }, info: Record<number, Lineup>): MatchKind {
+  const men = (x: number, y: number) => (info[x]?.gender === 'M' ? 1 : 0) + (info[y]?.gender === 'M' ? 1 : 0)
+  if ([m.a1, m.a2, m.b1, m.b2].some((i) => !info[i])) return m.event
+  const ma = men(m.a1, m.a2)
+  const mb = men(m.b1, m.b2)
+  if (ma !== mb) return 'HD'
+  return ma === 2 ? 'MD' : ma === 1 ? 'XD' : 'WD'
+}
+
+/**
+ * Opponent rules that hold whatever the line-up: all four players within one grade (so B never meets D), and two
+ * C players with at least one Upper C never play two D players. A handicap never makes a match allowed.
+ */
+export function opponentsAllowed(a: [Lineup, Lineup], b: [Lineup, Lineup]): boolean {
+  const known = [...a, ...b].map((p) => p.grade).filter((g): g is number => g != null)
+  if (known.length && Math.max(...known) - Math.min(...known) > 1) return false
+  const strongC = (s: [Lineup, Lineup]) => s.every((p) => p.grade === GRADE_C) && s.some((p) => p.upper)
+  const bothD = (s: [Lineup, Lineup]) => s.every((p) => p.grade === GRADE_D)
+  return !((strongC(a) && bothD(b)) || (bothD(a) && strongC(b)))
 }

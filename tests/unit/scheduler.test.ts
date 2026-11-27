@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test'
 import assert from 'node:assert/strict'
 import { estimatePlan, generatePlan, gradeSpreadOk, roundsNeeded, type Plan, type SchedPlayer } from '../../lib/scheduler'
-import { headStart } from '../../lib/handicap'
+import { startScore } from '../../lib/handicap'
 import { lineupIssues, teamSetup, type LineupPlayer } from '../../lib/lineup'
 import { teamOf } from '../../lib/team'
 
@@ -50,11 +50,11 @@ function checkRules(plan: Plan, players: SchedPlayer[], courts: number, cap: num
     const wb = b.filter((p) => p.gender === 'F').length
     if (wa !== wb) {
       assert(wa === 2 && wb === 0, `round ${m.round}: only two women vs two men (women on side A) may differ in type`)
-      const hs = headStart(
+      const hs = startScore(
         [{ gender: 'F', grade: a[0].grade }, { gender: 'F', grade: a[1].grade }],
         [{ gender: 'M', grade: b[0].grade }, { gender: 'M', grade: b[1].grade }],
       )
-      assert(hs?.covered && !hs.half, `round ${m.round}: handicap line-up has no valid head start`)
+      assert(hs.covered, `round ${m.round}: cross line-up has no starting score`)
     }
     assert.equal(m.event, wa === 0 && wb === 0 ? 'MD' : 'XD', 'event is MD for all-men matches, otherwise XD')
     if (teamsActive) {

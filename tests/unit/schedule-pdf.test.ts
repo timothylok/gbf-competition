@@ -73,7 +73,7 @@ describe('buildSchedulePdf', () => {
 
   it('handles handicap notes, every event colour, and an empty schedule', async () => {
     const rows = [
-      row(1, 1, 'HD', 'Handicap doubles', [P('Kim'), P('Jo')], [P('Alex'), P('Sam')], 'Women start +4'),
+      row(1, 1, 'HD', 'Cross doubles', [P('Kim'), P('Jo')], [P('Alex'), P('Sam')], 'Start 4 : 0'),
       row(1, 2, 'WD', "Women's doubles", [P('Kim'), P('Jo')], [P('Pat'), P('Lee')]),
       row(1, 3, 'XD', 'Mixed doubles', [P('Kim'), P('Alex')], [P('Pat'), P('Sam')]),
     ]

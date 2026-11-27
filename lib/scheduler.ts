@@ -1,5 +1,5 @@
 import type { EventType, Gender } from './types'
-import { headStart } from './handicap'
+import { startScore } from './handicap'
 
 /**
  * The draw. Rules (see docs/game-rules.md):
@@ -7,7 +7,7 @@ import { headStart } from './handicap'
  *    each side made of two players from one team. The team with spare game-slots may play same-team "filler" matches
  *    once the cross-team matches run out.
  *  - Same type on both sides: men vs men, women vs women, or one man + one woman vs the same. When that is not
- *    possible, two women may play two men with a head start (handicap).
+ *    possible, two women may play two men (cross doubles). Every match gets a starting score from lib/handicap.ts.
  *  - Grades: all four players within one grade of each other (A to B, B to C, ...). Same grade is preferred.
  *  - Every player plays at most `maxGames` games; one match per player per round; at most `courts` matches per round;
  *    never past `maxRounds` (the time limit).
@@ -269,11 +269,11 @@ function generateOnce(players: SchedPlayer[], courts: number, targets: Targets, 
             kind = wa === 0 ? 'MD' : wa === 1 ? 'XD' : 'WD'
           } else if ((wa === 2 && wb === 0) || (wa === 0 && wb === 2)) {
             if (wa === 0) [A, B] = [B, A] // the women's side is side A
-            const hs = headStart(
+            const hs = startScore(
               [{ gender: 'F', grade: grade(A[0]), upper: upperIdx.has(A[0]) }, { gender: 'F', grade: grade(A[1]), upper: upperIdx.has(A[1]) }],
               [{ gender: 'M', grade: grade(B[0]), upper: upperIdx.has(B[0]) }, { gender: 'M', grade: grade(B[1]), upper: upperIdx.has(B[1]) }],
             )
-            if (!hs || !hs.covered || hs.half) continue
+            if (!hs.covered) continue
             kind = 'HD'
             tier = 'handicap'
           } else continue

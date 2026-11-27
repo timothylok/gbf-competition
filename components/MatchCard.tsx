@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { getT, type T } from '@/lib/i18n'
 import { TONE } from '@/lib/event-tone'
-import { headStartOf, matchKind, type Lineup } from '@/lib/handicap'
+import { matchKind, startLabel, startScoreOf, type Lineup } from '@/lib/handicap'
 import { roundTime } from '@/lib/time'
 import type { Competition, Match } from '@/lib/types'
 
@@ -47,7 +47,7 @@ export function MatchCard({ m, names, info, comp }: { m: Match; names: Names; in
   const { t } = getT()
   const kind = matchKind(m, info)
   const tone = TONE[kind]
-  const hs = headStartOf(m, info)
+  const ss = startScoreOf(m, info)
   const done = m.status === 'done' && m.score_a != null && m.score_b != null
   const show = (m.status === 'done' || m.status === 'live') && m.score_a != null && m.score_b != null
   const aWin = done && m.score_a! > m.score_b!
@@ -71,11 +71,7 @@ export function MatchCard({ m, names, info, comp }: { m: Match; names: Names; in
         <span>{roundTime(comp.start_time, comp.slot_minutes, m.round)}</span>
         <span className="ml-auto">{t(kind)}</span>
       </header>
-      {hs && (
-        <p className="bg-paper/40 px-4 py-1 text-xs font-semibold text-ink">
-          {hs.covered ? `${t('headStart')}${hs.points}` : t('headStartTbc')}
-        </p>
-      )}
+      {ss && <p className="bg-paper/40 px-4 py-1 text-xs font-semibold text-ink">{startLabel(ss, t)}</p>}
       <div className="divide-y divide-ink/10">
         <Team ids={[m.a1, m.a2]} names={names} comp={comp.id} score={m.score_a} show={show} win={aWin} dim={bWin} tone={tone} t={t} />
         <Team ids={[m.b1, m.b2]} names={names} comp={comp.id} score={m.score_b} show={show} win={bWin} dim={aWin} tone={tone} t={t} />
@@ -92,7 +88,7 @@ export function MatchCard({ m, names, info, comp }: { m: Match; names: Names; in
   )
 }
 
-/** Colour key shown under the tabs: blue = men's doubles, pink = mixed doubles, lilac = women's doubles, coral = handicap (women vs men). */
+/** Colour key shown under the tabs: blue = men's doubles, pink = mixed doubles, lilac = women's doubles, coral = cross doubles (sides of different types, e.g. men vs women). */
 export function EventLegend() {
   const { t } = getT()
   return (

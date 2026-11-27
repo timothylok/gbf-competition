@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import { Banner } from '@/components/Banner'
 import { requireAdmin } from '@/lib/auth'
 import { gradeToLetter, withGrade } from '@/lib/grade'
-import { headStartOf, matchKind } from '@/lib/handicap'
+import { matchKind, startLabel, startScoreOf } from '@/lib/handicap'
 import { lineupIssues, teamSetup, type LineupPlayer } from '@/lib/lineup'
 import { compileRules, parseRules } from '@/lib/pairing-rules'
 import { ConfirmButton } from '@/components/ConfirmButton'
@@ -75,7 +75,7 @@ export default async function SchedulePage({ params, searchParams }: { params: {
   const info = Object.fromEntries(players.map((p) => [p.id, { gender: p.gender, grade: p.grade, upper: p.upper_c }]))
   const lp = (i: number): LineupPlayer | null => {
     const p = byId.get(i)
-    return p ? { id: p.id, gender: p.gender, grade: p.grade, team: teamOf(p.nickname) } : null
+    return p ? { id: p.id, gender: p.gender, grade: p.grade, team: teamOf(p.nickname), upper: p.upper_c } : null
   }
 
   const warn = (m: Match): string[] => {
@@ -175,13 +175,13 @@ export default async function SchedulePage({ params, searchParams }: { params: {
               {matches.filter((m) => m.round === r).map((m) => {
                 const w = warn(m)
                 const kind = matchKind(m, info)
-                const hs = headStartOf(m, info)
+                const ss = startScoreOf(m, info)
                 return (
                   <li key={m.id} className={`flex flex-wrap items-center gap-x-3 gap-y-1 border-l-4 px-3 py-2 text-sm ${TONE[kind].side}`}>
                     <span className="w-14 font-semibold text-ink/75">{t('court')} {m.court}</span>
                     <span className={`chip ${TONE[kind].chip}`}>{t(kind)}</span>
                     <span className="flex-1">{nm(m.a1)} / {nm(m.a2)} <span className="text-ink/75">{t('vs')}</span> {nm(m.b1)} / {nm(m.b2)}</span>
-                    {hs && <span className="chip bg-mist text-ink">{hs.covered ? `${t('headStart')}${hs.points}` : t('headStartTbc')}</span>}
+                    {ss && <span className="chip bg-mist text-ink">{startLabel(ss, t)}</span>}
                     {m.status === 'done' && <span className="chip bg-leaf/30 text-ink">{m.score_a}–{m.score_b}</span>}
                     {w.map((x) => <span key={x} title={x} className="chip bg-sun text-ink">⚠ {x}</span>)}
                     {m.status !== 'done' && <Link href={`/admin/c/${id}/schedule?m=${m.id}#edit`} className="rounded-lg border border-mist px-3 py-2 font-semibold text-ink hover:bg-mist/40">{t('edit')}</Link>}

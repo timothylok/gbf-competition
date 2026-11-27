@@ -1,5 +1,5 @@
 import { gradeToLetter, withGrade } from './grade'
-import { headStartOf, matchKind } from './handicap'
+import { matchKind, startLabel, startScoreOf } from './handicap'
 import type { T } from './i18n'
 import { roundRange, warmupRange } from './time'
 import type { Competition, Match, MatchKind, Player } from './types'
@@ -17,7 +17,7 @@ export interface ScheduleRow {
   court: number
   /** "Court 3" */
   courtLabel: string
-  /** Men's doubles / Mixed doubles / Handicap doubles */
+  /** Men's doubles / Mixed doubles / Women's doubles / Cross doubles */
   kind: string
   /** Which kind of match: used for colours. */
   kindKey?: MatchKind
@@ -27,7 +27,7 @@ export interface ScheduleRow {
   /** The same players as data, for the PDF. */
   a?: SidePlayer[]
   b?: SidePlayer[]
-  /** "Women start +4" for handicap matches. */
+  /** Starting score, e.g. "Start 0 : 4". */
   note: string
   /** The warm-up line: no match is played in the first 15 minutes. */
   warmup?: boolean
@@ -53,7 +53,7 @@ export function scheduleGroups(comp: Competition, players: Player[], matches: Ma
     return p ? { name: p.nickname, grade: gradeToLetter(p.grade) } : { name: '?', grade: '' }
   }
   const toRow = (m: Match): ScheduleRow => {
-    const hs = headStartOf(m, info)
+    const ss = startScoreOf(m, info)
     return {
       when: roundRange(comp.start_time, comp.slot_minutes, m.round),
       round: m.round,
@@ -65,7 +65,7 @@ export function scheduleGroups(comp: Competition, players: Player[], matches: Ma
       b: [person(m.b1), person(m.b2)],
       sideA: `${label(m.a1)} / ${label(m.a2)}`,
       sideB: `${label(m.b1)} / ${label(m.b2)}`,
-      note: hs ? (hs.covered ? `${t('headStart')}${hs.points}` : t('headStartTbc')) : '',
+      note: ss ? startLabel(ss, t) : '',
     }
   }
   const live = matches.filter((m) => m.status !== 'cancelled')

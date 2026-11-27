@@ -52,7 +52,7 @@ async function readSchedule(page: Page, comp: number): Promise<Row[]> {
           court: Number((spans[0]?.textContent ?? '').replace(/\D/g, '')),
           kind: (spans[1]?.textContent ?? '').trim(),
           names: (spans[2]?.textContent ?? '').trim().split(/\s*\/\s*|\s+vs\s+/).map((x) => x.trim()).filter(Boolean).map((x) => x.replace(/ - \([A-I]\)$/, '')),
-          headStart: spans.map((x) => x.textContent?.trim() ?? '').find((x) => /^Women start/.test(x)) ?? null,
+          headStart: spans.map((x) => x.textContent?.trim() ?? '').find((x) => /^Start/.test(x)) ?? null,
           warnings: [...li.querySelectorAll('span[title]')].map((x) => x.getAttribute('title') ?? ''),
         }
       })
@@ -62,17 +62,16 @@ async function readSchedule(page: Page, comp: number): Promise<Row[]> {
 
 const p = (name: string) => people.get(name)!
 const womenIn = (names: string[]) => names.filter((n) => p(n).gender === 'F').length
-/** Independent copy of the head start rule (no Upper C in this roster): 2 to 6 by the grade gap (2 per grade, averaged per side), half for one woman + one man. */
-function expectedHeadStart(names: string[]): number | null {
-  const a = names.slice(0, 2), b = names.slice(2)
-  const wa = womenIn(a), wb = womenIn(b)
-  if (!((wa > 0 && wb === 0) || (wb > 0 && wa === 0))) return null
-  const [ws, ms] = wa > 0 ? [a, b] : [b, a]
-  const avg = (s: string[]) => (p(s[0]).grade + p(s[1]).grade) / 2
-  const raw = 4 + 2 * (avg(ws) - avg(ms))
-  const full = raw >= 4 ? Math.ceil(raw) : Math.floor(raw)
-  const covered = full >= 2 && full <= 6
-  return !covered ? 0 : womenIn(ws) === 1 ? Math.floor(full / 2) : full
+/** Independent copy of the starting-score rule (no Upper C in this roster): men B 14, C 6, D 4; women B 6, C 2, D 1. */
+function expectedStart(names: string[]): string {
+  const w = (n: string) => {
+    const x = p(n)
+    return x.gender === 'M' ? ({ 2: 14, 3: 6, 4: 4 } as Record<number, number>)[x.grade] : ({ 2: 6, 3: 2, 4: 1 } as Record<number, number>)[x.grade]
+  }
+  const sa = w(names[0]) + w(names[1])
+  const sb = w(names[2]) + w(names[3])
+  const pts = Math.ceil(Math.abs(sa - sb) / 2)
+  return `Start ${sa < sb ? pts : 0} : ${sb < sa ? pts : 0}`
 }
 const gamesOf = (rows: Row[]) => {
   const g = new Map<string, number>()
@@ -174,7 +173,7 @@ describe(`game rules: Philippines vs the rest, grades, handicap (${N} players, $
     assert(sameTeam > 0 && sameTeam <= 8, `${sameTeam} filler matches`)
   })
 
-  it('same type on both sides, all four players within one grade; women vs men only as handicap', () => {
+  it('same type on both sides, all four players within one grade; women vs men as cross doubles', () => {
     for (const m of rows) {
       const g = m.names.map((n) => p(n).grade)
       assert(Math.max(...g) - Math.min(...g) <= 1, `round ${m.round} court ${m.court}: grades ${m.names.map((n) => p(n).letter)}`)
@@ -184,20 +183,15 @@ describe(`game rules: Philippines vs the rest, grades, handicap (${N} players, $
       else if (wa === 2 && wb === 2) assert.equal(m.kind, "Women's doubles")
       else {
         assert(wa === 2 && wb === 0, `round ${m.round}: women (side A) vs men is the only type mix allowed`)
-        assert.equal(m.kind, 'Handicap doubles')
+        assert.equal(m.kind, 'Cross doubles')
       }
     }
     assert(rows.some((m) => m.kind === "Women's doubles"), 'women play women')
-    assert(rows.some((m) => m.kind === 'Handicap doubles'), "the Philippines women (11) outnumber the rest's (8), so some play the rest's men")
+    assert(rows.some((m) => m.kind === 'Cross doubles'), "the Philippines women (11) outnumber the rest's (8), so some play the rest's men")
   })
 
-  it('every handicap match shows the right head start (2 to 6 by the grade gap)', () => {
-    for (const m of rows.filter((r) => r.kind === 'Handicap doubles')) {
-      const exp = expectedHeadStart(m.names)
-      assert(exp && exp > 0, `${m.names.join('/')}: the draw only makes matches the rules cover`)
-      assert.equal(m.headStart, `Women start +${exp}`, m.names.join(' / '))
-    }
-    for (const m of rows.filter((r) => r.kind !== 'Handicap doubles')) assert.equal(m.headStart, null, 'no head start outside handicap matches')
+  it('every match, of every type, shows the right whole-number starting score', () => {
+    for (const m of rows) assert.equal(m.headStart, expectedStart(m.names), m.names.join(' / '))
   })
 
   it('the Players tab saves "Happy to partner D grade" and the draw still works with it', async () => {
@@ -220,18 +214,18 @@ describe(`game rules: Philippines vs the rest, grades, handicap (${N} players, $
     assert.equal(rows.reduce((n, r) => n + r.warnings.length, 0), 0)
   })
 
-  it('score entry and the public schedule show the head start', async () => {
-    const handicap = rows.filter((r) => r.kind === 'Handicap doubles').length
+  it('score entry and the public schedule show the starting score', async () => {
+    const handicap = rows.filter((r) => r.kind === 'Cross doubles').length
     assert(handicap > 0)
     await go(page, `/admin/c/${comp}/scores`)
     const scoreText = await page.evaluate(() => document.body.innerText)
-    assert.match(scoreText, /Women start \+[2-6]/)
-    assert.match(scoreText, /handicap doubles/i) // the score screen shows labels in capitals
+    assert.match(scoreText, /Start \d+ : \d+ \(Side A : Side B\)/)
+    assert.match(scoreText, /cross doubles/i) // the score screen shows labels in capitals
     await setStatus(page, comp, 'live')
     const html = (await fetchHtml(`/schedule?c=${comp}`)).html
-    const handicapCards = cards(html).filter((c) => /Handicap doubles/.test(c))
+    const handicapCards = cards(html).filter((c) => /Cross doubles/.test(c))
     assert.equal(handicapCards.length, handicap)
-    assert(handicapCards.every((c) => /Women start \+[2-6]/.test(c)), 'every public handicap card shows its head start')
+    assert(cards(html).every((c) => /Start \d+ : \d+/.test(c)), 'every public card shows its starting score')
     assert(cards(html).some((c) => /Women's doubles/.test(c)), "women's doubles cards are labelled")
   })
 
@@ -300,7 +294,7 @@ describe(`game rules: Philippines vs the rest, grades, handicap (${N} players, $
     assert.match((await banner(page)) ?? '', /would end after the time limit/)
   })
 
-  it('warns on a hand-made match with grades two apart or Philippines vs Philippines, and shows half a head start', async () => {
+  it('warns on a hand-made match with grades two apart or Philippines vs Philippines, and gives a mixed-vs-men line-up its starting score', async () => {
     // B and D together: more than one grade apart
     await addMatchByHand({ a1: pick('B', 'F', 'M', 0), a2: pick('C', 'F', 'M', 3), b1: pick('D', 'R', 'M', 0), b2: pick('C', 'R', 'M', 3) }, '15', '1', 'MD')
     assert.match((await banner(page)) ?? '', /Created/)
@@ -310,11 +304,11 @@ describe(`game rules: Philippines vs the rest, grades, handicap (${N} players, $
     await addMatchByHand({ a1: pick('C', 'F', 'M', 4), a2: pick('C', 'F', 'M', 5), b1: pick('C', 'F', 'M', 6), b2: pick('B', 'F', 'M', 1) }, '16', '1', 'MD')
     const same = (await readSchedule(page, comp)).find((r) => r.round === 16)!
     assert(same.warnings.some((w) => /Philippines/.test(w)), `team warning, got ${JSON.stringify(same.warnings)}`)
-    // one woman + one man against two men: half a head start (2 at the same grade), no warnings
+    // one woman + one man against two men (all C): 8 vs 12, so the mixed side starts 2 : 0, no warnings
     await addMatchByHand({ a1: pick('C', 'F', 'F', 0), a2: pick('C', 'F', 'M', 6), b1: pick('C', 'R', 'M', 4), b2: pick('C', 'R', 'M', 5) }, '17', '1', 'XD')
     const half = (await readSchedule(page, comp)).find((r) => r.round === 17)!
-    assert.equal(half.kind, 'Handicap doubles')
-    assert.equal(half.headStart, 'Women start +2')
+    assert.equal(half.kind, 'Cross doubles')
+    assert.equal(half.headStart, 'Start 2 : 0')
     assert.equal(half.warnings.length, 0, 'a women-vs-men line-up is not flagged')
   })
 
@@ -329,7 +323,7 @@ describe(`game rules: Philippines vs the rest, grades, handicap (${N} players, $
       const times = group.split('\n').slice(1).map((l) => l.slice(0, 11))
       assert.deepEqual([...times].sort(), times, 'each court is sorted by time')
     }
-    assert.match(byCourt, /Handicap doubles: .* \[Women start \+[246]\]/)
+    assert.match(byCourt, /Cross doubles: .* \[Start \d+ : \d+\]/)
     await go(page, `/admin/c/${comp}/text?by=time`)
     const byTime = await page.$eval('[data-testid=schedule-text]', (e) => (e as HTMLTextAreaElement).value)
     assert.equal(byTime.split('\n').filter((l) => / vs /.test(l)).length, total)
